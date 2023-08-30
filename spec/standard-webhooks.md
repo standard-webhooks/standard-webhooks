@@ -228,22 +228,6 @@ Verifying signatures is similar to creating them, though there are a few conside
 - Make sure to verify the `webhook-timestamp` header has a timestamp that is within some allowable tolerance of the current timestamp to prevent replay attacks.
 - Use the `webhook-id` header as an idempotency key to prevent accidentally processing the same webhook more than once (e.g. save the IDs in redis for 5 minutes).
 
-#### Reference implementations
-
-**IMPORTANT:** The reference implementations will move to their own repository upon release of this spec.
-
-There are reference implementations for the signature verification theme for a variety of languages, including:
-
-- [C#](https://github.com/svix/svix-webhooks/tree/main/csharp)
-- [Go](https://github.com/svix/svix-webhooks/tree/main/go)
-- [Java](https://github.com/svix/svix-webhooks/tree/main/java)
-- [JavaScript/TypeScript](https://github.com/svix/svix-webhooks/tree/main/javascript)
-- [Kotlin](https://github.com/svix/svix-webhooks/tree/main/kotlin)
-- [PHP](https://github.com/svix/svix-webhooks/tree/main/php)
-- [Python](https://github.com/svix/svix-webhooks/tree/main/python)
-- [Ruby](https://github.com/svix/svix-webhooks/tree/main/ruby)
-- [Rust](https://github.com/svix/svix-webhooks/tree/main/rust)
-
 ### Operational considerations
 
 The previous section covered important considerations relating to the signature scheme, the payload, and the headers. This section is about operational considerations required for a good webhook experience.
@@ -345,23 +329,3 @@ The rest of the recommendations and requirements outlined in this document can t
 While migrating the payload is optional, and you can get most of the benefits of standard webhooks compatibility even without doing that. However, doing so will enable you to utilize even more of the standard webhooks ecosystem, and is therefore recommended.
 
 There are a few strategies for migrating the payloads, each with its own advantages and disadvantages. The first is adding data to existing payloads with the wanted format. This approach is easy and backwards compatible, but it may lead to confusion, and it will also lead to redundancy in data. The second is a slightly better variation, where you still duplicate the data, but only for endpoints created before the switch-over date. The last alternative is to create a new event type for each of the existing ones, and have them conform to the new format.
-
-## Example ecosystem benefits of Standard Webhooks
-
-We believe "Standard Webhooks" can do to webhooks what JWT did to API authentication. Having a common protocol that is consistent will enable a variety of implementations to interoperate, reducing the development burden on webhook consumers and enabling new uses. Some of these benefits include:
-
-- API Gateway signature verification: signature verification is a common challenge for webhook consumers. Standard Webhooks makes it possible for verification to be implemented directly in the API gateway, easily solving verification for consumers.
-- Having a set of libraries for signing and verification make webhook verification easier for scenarios where API gateways can't be used.
-- Workflow automation tools (such as Zapier, Make, Workato, and tray.io) can implement the signature verification themselves to ensure a secure integration and save the need for integration builders to reinvent the wheel every time.
-- Standard Webhooks will enable building tools to automatically generate SDK for webhook consumers that in addition to verifying the signature can also validate the schemas (using JSON Schema, OpenAPI or AsyncAPI definitions).
-- Much more...
-
-## Related efforts
-
-There are a few complementary or partially overlapping efforts to standardize asynchronous event communication. This specification is compatible with the rest of them, and can either reuse existing efforts or benefit further from collaboration with them. The most notable of such efforts are:
-
-- [OpenAPI](https://www.openapis.org/)
-- [AsyncAPI](https://www.asyncapi.com/)
-- [CloudEvents](https://cloudevents.io/)
-- [IETF HTTP Message Signatures](https://httpwg.org/http-extensions/draft-ietf-httpbis-message-signatures.html)
-- [REST Hooks](http://resthooks.org/)
