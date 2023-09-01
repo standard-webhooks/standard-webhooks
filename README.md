@@ -54,6 +54,7 @@ Members (in alphabetical order):
 
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
 * [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
+* [Brian Cooksey](https://github.com/bcooksey) ([Zapier](https://zapier.com/))
 
 
 ## Example ecosystem benefits of Standard Webhooks
