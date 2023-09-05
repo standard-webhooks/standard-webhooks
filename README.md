@@ -52,10 +52,10 @@ The Standard Webhooks initiative, the specification, and development of tooling 
 
 Members (in alphabetical order):
 
-* [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
-* [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
 * [Brian Cooksey](https://github.com/bcooksey) ([Zapier](https://zapier.com/))
 * [Ivan Gracia](https://github.com/igracia) ([Twilio](https://twilio.com/))
+* [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
+* [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
 
 
 ## Example ecosystem benefits of Standard Webhooks
