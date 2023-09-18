@@ -1,0 +1,23 @@
+name: Java Lint
+on:
+  pull_request:
+    paths:
+      - "libraries/java/**"
+jobs:
+  dotnet:
+    name: Java Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+  
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+  
+      - name: Build
+        run: |
+          cd libraries/java
+          ./gradlew build

@@ -1,0 +1,29 @@
+name: Ruby Lint
+
+on: 
+  pull_request:
+    paths:
+      - "libraries/ruby/**"
+
+jobs:
+  dotnet:
+    name: Ruby Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7
+
+      - name: Install dependencies
+        run: |
+          cd libraries/ruby
+          bundler install
+
+      - name: Build
+        run: |
+          cd libraries/ruby
+          bundler exec rake build

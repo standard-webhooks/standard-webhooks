@@ -1,0 +1,20 @@
+name: PHP Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  packagist:
+    name: Update Packagist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Update Packagist
+        run: |
+          curl -X POST "https://packagist.org/api/update-package?username=standard-webhooks&apiToken=$PACKAGIST_API_KEY" \
+            -H 'content-type: application/json' \
+            -d '{"repository":{"url":"https://packagist.org/packages/standard-webhooks/standard-webhooks"}}'
+        env:
+          PACKAGIST_API_KEY: ${{ secrets.PACKAGIST_API_KEY }}
