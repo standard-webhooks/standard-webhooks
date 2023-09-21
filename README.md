@@ -8,7 +8,7 @@ Open source tools and guidelines for sending webhooks easily, securely, and reli
 
 ## Introduction
 
-Webhooks are becoming increasingly popular and are used by many of the world's top companies. However, the ecosystem is fragmented, with each webhook provider using different implementations and varying quality. Even high quality implementations vary, making them inherently incompatible. This fragmentation is a pain for the providers and consumers, stiffling innovation.
+Webhooks are becoming increasingly popular and are used by many of the world's top companies for sending events to users of their APIs. However, the ecosystem is fragmented, with each webhook provider using different implementations and varying quality. Even high quality implementations vary, making them inherently incompatible. This fragmentation is a pain for the providers and consumers, stifling innovation.
 
 For consumers, this means handling webhooks differently for every provider, relearning how to verify webhooks, and encountering gotchas with bespoke implementations. For providers, this means reinventing the wheel, redesigning for issues that have already been solved (security, forward compatibility, etc.). 
 
