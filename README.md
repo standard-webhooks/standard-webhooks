@@ -4,23 +4,23 @@
     </a>
 </h1>
 
-Open source tools and guidelines for sending webhooks easily, securely and reliably
+Open source tools and guidelines for sending webhooks easily, securely, and reliably
 
 ## Introduction
 
-Webhooks are becoming increasingly popular, and are used by many of the world's top companies to notify users of their APIs of events. Implementations, however, are heavily fragmented, and every webhooks provider implements things differently and with varying quality. In addition, even the higher quality implementations are different to one another which means they are inherently incompatible. This fragmentation is a pain for the whole ecosystem, both providers and consumers, is wasteful, and is holding back innovation.
+Webhooks are becoming increasingly popular and are used by many of the world's top companies for sending events to users of their APIs. However, the ecosystem is fragmented, with each webhook provider using different implementations and varying quality. Even high quality implementations vary, making them inherently incompatible. This fragmentation is a pain for the providers and consumers, stifling innovation.
 
-For consumers this means having to implement webhook handling differently for every provider, having to relearn how to verify webhooks, and encounter many gotchas with weird implementations. For providers this means reinventing the wheel every time, and making costly mistakes around issues that have already been solved elsewhere (security, forward compatibility, etc.). It also holds the ecosystem back as a whole, as these incompatibilities mean that no tools are being built to help senders send, consumers consume, and for everyone to innovate on top.
+For consumers, this means handling webhooks differently for every provider, relearning how to verify webhooks, and encountering gotchas with bespoke implementations. For providers, this means reinventing the wheel, redesigning for issues that have already been solved (security, forward compatibility, etc.). 
 
-The solution is simple: have a standard way of implementing webhooks. This design document aims to outline exactly that, a set of strict webhook guidelines based on the existing industry best practices; we call it "Standard Webhooks".
+We propose a simple solution: standardize webhooks across the industry. This design document outlines our proposal, a set of strict webhook guidelines based on the existing industry best practices. We call it "Standard Webhooks".
 
-We believe "Standard Webhooks" can do to webhooks what JWT did to API authentication. Having a common protocol that is consistent and supported by different implementations will solve the above issues, and will usher in an era of new tools and innovations in the world of webhooks.
+We believe "Standard Webhooks" can do for webhooks what JWT did for API authentication. Adopting a common protocol that is consistent and supported by different implementations will solve the above issues, and will enable new tools and innovations in webhook ecosystem.
 
-To achieve this, we have created a fully open source and community driven set of tools and guidelines for sending webhooks. Part of which is the document you are currently reading.
+To achieve this, we have created an open source and community-driven set of tools and guidelines for sending webhooks. 
 
-## What are webhooks?
+## What are Webhooks?
 
-Webhooks are a common name for HTTP callbacks, and are how services notify each other of events. Webhooks are part of a service's API, though you can think of them as a sort of a reverse API. When a client wants to make a request to a service they make an API call, and when the service wants to notify the client of an event the service triggers a webhook ("a user has paid", "task has finished", etc.).
+Webhooks are a common name for HTTP callbacks, and are a way for services to notify each other of events. Webhooks are part of a service's API, though you can think of them as a sort of a "reverse API". When a client wants to make a request to a service they make an API call, and when the service wants to notify the client of an event the service triggers a webhook ("a user has paid", "task has finished", etc.).
 
 Webhooks are server-to-server, in the sense that both the customer and the service in the above description, should be operating HTTP servers, one to receive the API calls and one to receive the webhooks.It's important to note that while webhooks usually co-exist with a traditional API, this is not a requirement, and some services send webhooks without offering a traditional API.
 
@@ -31,7 +31,7 @@ The human-readable markdown file is the source of truth for the specification.
 
 ## Reference implementations
 
-**IMPORTANT:** The reference implementations will move to their own repository upon release of this spec.
+**IMPORTANT:** The reference implementations will move to a separate repository upon release of this spec.
 
 There are reference implementations for the signature verification theme for a variety of languages, including:
 
