@@ -1,0 +1,32 @@
+name: Python Lint
+on: 
+  pull_request:
+    paths:
+      - "libraries/python/**"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        name: Install Python
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          cd libraries/python
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt .
+          python -m pip install -r requirements-dev.txt .
+
+      - name: Run linting
+        run: |
+          cd libraries/python
+          sh ./scripts/lint.sh
+
+      - name: Run test
+        run: | 
+          cd libraries/python
+          pytest

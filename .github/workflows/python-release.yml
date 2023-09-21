@@ -1,0 +1,41 @@
+name: Python Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        name: Install Python
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          cd libraries/python
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt .
+          python -m pip install -r requirements-dev.txt .
+
+      - name: Install setuptools
+        run: |
+          cd libraries/python
+          python -m pip install setuptools
+
+      - name: Build sdist
+        run: |
+          cd libraries/python
+          python setup.py sdist
+
+      - uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.TWINE_PASSWORD }}
+          packages_dir: libraries/python/dist

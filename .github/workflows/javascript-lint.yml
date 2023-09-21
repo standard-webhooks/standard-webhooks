@@ -1,0 +1,20 @@
+name: Javascript Lint
+on:
+  pull_request:
+    paths:
+      - "libraries/javascript/**"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install modules
+        run: |
+          cd libraries/javascript
+          yarn
+
+      - name: Lint
+        run: |
+          cd libraries/javascript
+          yarn run lint
