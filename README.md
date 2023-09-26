@@ -56,6 +56,7 @@ Members (in alphabetical order):
 * [Ivan Gracia](https://github.com/igracia) ([Twilio](https://twilio.com/))
 * [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
+* [Vincent Le Goff](https://github.com/zekth) ([Kong](https://konghq.com))
 
 
 ## Example ecosystem benefits of Standard Webhooks
