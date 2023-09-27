@@ -3,14 +3,21 @@ on:
   pull_request:
     paths:
       - "libraries/go/**"
+      - ".github/workflows/go-lint.yml"
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: libraries/go.mod
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v3
         with:
           version: latest
           working-directory: libraries/go
-
+          args: "--out-format colored-line-number"
+      - name: run tests
+        run: cd libraries && go test -v ./...
