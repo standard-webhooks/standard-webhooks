@@ -57,7 +57,7 @@ Members (in alphabetical order):
 * [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
 * [Vincent Le Goff](https://github.com/zekth) ([Kong](https://konghq.com))
-
+* [Stojan Dimitrovski](https://github.com/hf) ([Supabase](https://supabase.com))
 
 ## Example ecosystem benefits of Standard Webhooks
 
