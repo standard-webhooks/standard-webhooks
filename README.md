@@ -31,19 +31,16 @@ The human-readable markdown file is the source of truth for the specification.
 
 ## Reference implementations
 
-**IMPORTANT:** The reference implementations will move to a separate repository upon release of this spec.
-
 There are reference implementations for the signature verification theme for a variety of languages, including:
 
-- [C#](https://github.com/svix/svix-webhooks/tree/main/csharp)
-- [Go](https://github.com/svix/svix-webhooks/tree/main/go)
-- [Java](https://github.com/svix/svix-webhooks/tree/main/java)
-- [JavaScript/TypeScript](https://github.com/svix/svix-webhooks/tree/main/javascript)
-- [Kotlin](https://github.com/svix/svix-webhooks/tree/main/kotlin)
-- [PHP](https://github.com/svix/svix-webhooks/tree/main/php)
-- [Python](https://github.com/svix/svix-webhooks/tree/main/python)
-- [Ruby](https://github.com/svix/svix-webhooks/tree/main/ruby)
-- [Rust](https://github.com/svix/svix-webhooks/tree/main/rust)
+- [Python](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/python)
+- [JavaScript/TypeScript](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/javascript)
+- [Java/Kotlin](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/java)
+- [Rust](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/rust)
+- [Go](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/go)
+- [Ruby](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/ruby)
+- [PHP](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/php)
+- [C#](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/csharp)
 
 
 ## Technical steering committee
