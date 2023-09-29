@@ -55,9 +55,9 @@ Members (in alphabetical order):
 * [Brian Cooksey](https://github.com/bcooksey) ([Zapier](https://zapier.com/))
 * [Ivan Gracia](https://github.com/igracia) ([Twilio](https://twilio.com/))
 * [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
+* [Stojan Dimitrovski](https://github.com/hf) ([Supabase](https://supabase.com))
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
 * [Vincent Le Goff](https://github.com/zekth) ([Kong](https://konghq.com))
-* [Stojan Dimitrovski](https://github.com/hf) ([Supabase](https://supabase.com))
 
 ## Example ecosystem benefits of Standard Webhooks
 
