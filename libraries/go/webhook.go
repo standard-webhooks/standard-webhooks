@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+const (
+	HeaderWebhookID        string = "webhook-id"
+	HeaderWebhookSignature string = "webhook-signature"
+	HeaderWebhookTimestamp string = "webhook-timestamp"
+)
+
 var base64enc = base64.StdEncoding
 
 type Webhook struct {
@@ -67,9 +73,9 @@ func (wh *Webhook) VerifyIgnoringTimestamp(payload []byte, headers http.Header) 
 }
 
 func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance bool) error {
-	msgId := headers.Get("webhook-id")
-	msgSignature := headers.Get("webhook-signature")
-	msgTimestamp := headers.Get("webhook-timestamp")
+	msgId := headers.Get(HeaderWebhookID)
+	msgSignature := headers.Get(HeaderWebhookSignature)
+	msgTimestamp := headers.Get(HeaderWebhookTimestamp)
 	if msgId == "" || msgSignature == "" || msgTimestamp == "" {
 		return errRequiredHeaders
 	}

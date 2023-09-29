@@ -36,9 +36,9 @@ func newTestPayload(timestamp time.Time) *testPayload {
 	tp.signature, _ = wh.Sign(tp.id, tp.timestamp, tp.payload)
 
 	tp.header = http.Header{}
-	tp.header.Set("webhook-id", tp.id)
-	tp.header.Set("webhook-signature", tp.signature)
-	tp.header.Set("webhook-timestamp", fmt.Sprint(tp.timestamp.Unix()))
+	tp.header.Set(standardwebhooks.HeaderWebhookID, tp.id)
+	tp.header.Set(standardwebhooks.HeaderWebhookSignature, tp.signature)
+	tp.header.Set(standardwebhooks.HeaderWebhookTimestamp, fmt.Sprint(tp.timestamp.Unix()))
 
 	return tp
 }
