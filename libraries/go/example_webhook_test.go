@@ -17,7 +17,7 @@ const (
 // of a webhook payload by verifying the timestamp also.
 func Example_signatureFlow() {
 	var (
-		ts = time.Now().Format(time.RFC3339)
+		ts = time.Now()
 		id = "1234567890"
 	)
 
@@ -26,7 +26,7 @@ func Example_signatureFlow() {
 		log.Fatal(err)
 	}
 
-	payload := fmt.Sprintf(`{"type": "example.created", "timestamp":"%s", "data":{"foo":"bar"}}`, ts)
+	payload := `{"type": "example.created", "timestamp":"2023-09-28T19:20:22+00:00", "data":{"str":"string","bool":true,"int":42}}`
 
 	// signing the payload with the webhook handler
 	signature, err := wh.Sign(id, time.Now(), []byte(payload))
@@ -34,14 +34,11 @@ func Example_signatureFlow() {
 		log.Fatal(err)
 	}
 
-	// Signature has been properly generated
-	fmt.Println(signature)
-
 	// generating the http header carrier
 	header := http.Header{}
 	header.Set("webhook-id", id)
 	header.Set("webhook-signature", signature)
-	header.Set("webhook-timestamp", ts)
+	header.Set("webhook-timestamp", fmt.Sprint(ts.Unix()))
 
 	// http request is sent to consumer
 
@@ -50,4 +47,7 @@ func Example_signatureFlow() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("done")
+	// Output: done
 }
