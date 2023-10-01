@@ -1,8 +1,12 @@
 package standardwebhooks_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -210,4 +214,41 @@ func TestWebhookSign(t *testing.T) {
 		t.Fatalf("signature %s != expected signature %s", signature, expected)
 	}
 
+}
+
+type sharedWebhookTestData struct {
+	ID        string `json:"id"`
+	Timestamp int    `json:"timestamp"`
+	Secret    string `json:"secret"`
+	Payload   string `json:"payload"`
+	Signature string `json:"signature"`
+}
+
+func TestWebhookShared(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "testdata", "signatures.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testdatas := []sharedWebhookTestData{}
+	if err = json.Unmarshal(b, &testdatas); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < len(testdatas); i++ {
+		w, err := standardwebhooks.NewWebhook(testdatas[i].Secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ts, err := strconv.ParseInt(fmt.Sprint(testdatas[i].Timestamp), 10, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		signature, err := w.Sign(testdatas[i].ID, time.Unix(ts, 0), []byte(testdatas[i].Payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if signature != testdatas[i].Signature {
+			t.Errorf("%s is not equal to signature: %s", signature, testdatas[i].Signature)
+		}
+	}
 }

@@ -132,6 +132,9 @@ impl Webhook {
 #[cfg(test)]
 mod tests {
 
+    use serde::{Deserialize, Serialize};
+    use std::{fs, path::Path};
+
     use super::*;
     use http::HeaderMap;
 
@@ -280,6 +283,32 @@ mod tests {
                 hdr_map.remove(hdr);
                 assert!(wh.verify(payload, &hdr_map).is_err());
             }
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct SignatureTestData {
+        id: String,
+        timestamp: i64,
+        secret: String,
+        payload: String,
+        signature: String,
+    }
+
+    #[test]
+    fn test_shared_signatures() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("testdata")
+            .join("signatures.json");
+        let data: String = fs::read_to_string(data_path).unwrap();
+        let test_data: Vec<SignatureTestData> = serde_json::from_str(&data).unwrap();
+        for test in test_data {
+            let wh = Webhook::new(&test.secret).unwrap();
+            let signature = wh
+                .sign(&test.id, test.timestamp, test.payload.as_bytes())
+                .unwrap();
+            assert_eq!(signature, test.signature);
         }
     }
 }
