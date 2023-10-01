@@ -39,10 +39,11 @@ pub struct Webhook {
     key: Vec<u8>,
 }
 
+pub const HEADER_WEBHOOK_ID: &str = "webhook-id";
+pub const HEADER_WEBHOOK_SIGNATURE: &str = "webhook-signature";
+pub const HEADER_WEBHOOK_TIMESTAMP: &str = "webhook-timestamp";
+
 const PREFIX: &str = "whsec_";
-const UNBRANDED_MSG_ID_KEY: &str = "webhook-id";
-const UNBRANDED_MSG_SIGNATURE_KEY: &str = "webhook-signature";
-const UNBRANDED_MSG_TIMESTAMP_KEY: &str = "webhook-timestamp";
 const TOLERANCE_IN_SECONDS: i64 = 5 * 60;
 const SIGNATURE_VERSION: &str = "v1";
 
@@ -59,9 +60,9 @@ impl Webhook {
     }
 
     pub fn verify(&self, payload: &[u8], headers: &HeaderMap) -> Result<(), WebhookError> {
-        let msg_id = Self::get_header(headers, UNBRANDED_MSG_ID_KEY, "id")?;
-        let msg_signature = Self::get_header(headers, UNBRANDED_MSG_SIGNATURE_KEY, "signature")?;
-        let msg_ts = Self::get_header(headers, UNBRANDED_MSG_TIMESTAMP_KEY, "timestamp")
+        let msg_id = Self::get_header(headers, HEADER_WEBHOOK_ID, "id")?;
+        let msg_signature = Self::get_header(headers, HEADER_WEBHOOK_SIGNATURE, "signature")?;
+        let msg_ts = Self::get_header(headers, HEADER_WEBHOOK_TIMESTAMP, "timestamp")
             .and_then(Self::parse_timestamp)?;
 
         Self::verify_timestamp(msg_ts)?;
@@ -136,10 +137,10 @@ mod tests {
 
     fn get_unbranded_headers(msg_id: &str, signature: &str) -> HeaderMap {
         let mut headers = http::header::HeaderMap::new();
-        headers.insert(UNBRANDED_MSG_ID_KEY, msg_id.parse().unwrap());
-        headers.insert(UNBRANDED_MSG_SIGNATURE_KEY, signature.parse().unwrap());
+        headers.insert(HEADER_WEBHOOK_ID, msg_id.parse().unwrap());
+        headers.insert(HEADER_WEBHOOK_SIGNATURE, signature.parse().unwrap());
         headers.insert(
-            UNBRANDED_MSG_TIMESTAMP_KEY,
+            HEADER_WEBHOOK_TIMESTAMP,
             OffsetDateTime::now_utc()
                 .unix_timestamp()
                 .to_string()
@@ -206,7 +207,7 @@ mod tests {
             OffsetDateTime::now_utc().unix_timestamp() + (super::TOLERANCE_IN_SECONDS + 1),
         ] {
             headers.insert(
-                super::UNBRANDED_MSG_TIMESTAMP_KEY,
+                super::HEADER_WEBHOOK_TIMESTAMP,
                 ts.to_string().parse().unwrap(),
             );
 
@@ -270,9 +271,9 @@ mod tests {
         for (mut hdr_map, hdrs) in [(
             get_unbranded_headers(msg_id, &signature),
             [
-                UNBRANDED_MSG_ID_KEY,
-                UNBRANDED_MSG_SIGNATURE_KEY,
-                UNBRANDED_MSG_TIMESTAMP_KEY,
+                HEADER_WEBHOOK_ID,
+                HEADER_WEBHOOK_SIGNATURE,
+                HEADER_WEBHOOK_TIMESTAMP,
             ],
         )] {
             for hdr in hdrs {
