@@ -36,9 +36,9 @@ func Example_signatureFlow() {
 
 	// generating the http header carrier
 	header := http.Header{}
-	header.Set("webhook-id", id)
-	header.Set("webhook-signature", signature)
-	header.Set("webhook-timestamp", fmt.Sprint(ts.Unix()))
+	header.Set(standardwebhooks.HeaderWebhookID, id)
+	header.Set(standardwebhooks.HeaderWebhookSignature, signature)
+	header.Set(standardwebhooks.HeaderWebhookTimestamp, fmt.Sprint(ts.Unix()))
 
 	// http request is sent to consumer
 
