@@ -51,6 +51,7 @@ Members (in alphabetical order):
 
 * [Brian Cooksey](https://github.com/bcooksey) ([Zapier](https://zapier.com/))
 * [Ivan Gracia](https://github.com/igracia) ([Twilio](https://twilio.com/))
+* [Jorge Vivas](https://github.com/jorgelob) ([Lob](https://lob.com))
 * [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
 * [Stojan Dimitrovski](https://github.com/hf) ([Supabase](https://supabase.com))
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
