@@ -53,6 +53,7 @@ Members (in alphabetical order):
 * [Ivan Gracia](https://github.com/igracia) ([Twilio](https://twilio.com/))
 * [Jorge Vivas](https://github.com/jorgelob) ([Lob](https://lob.com))
 * [Matthew McClure](https://github.com/mmcc) ([Mux](https://mux.com))
+* [Nijiko Yonskai](https://github.com/nijikokun) ([ngrok](https://ngrok.com))
 * [Stojan Dimitrovski](https://github.com/hf) ([Supabase](https://supabase.com))
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
 * [Vincent Le Goff](https://github.com/zekth) ([Kong](https://konghq.com))
