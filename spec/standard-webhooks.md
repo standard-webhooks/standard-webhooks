@@ -124,7 +124,7 @@ If you find yourself needing to send large amounts of data (e.g. images or other
 
 Webhooks are just HTTP requests from an unknown source, so verifying the authenticity of webhooks is a requirement for any secure webhook implementation.
 
-There are multiple ways to verify the authenticity of webhooks, with some being much better than others. The most common way to verify the authenticity of webhooks is by using HMAC signatures using a pre-shared secret key, with a common alternative being the use of asymmetric signatures (more on that below).
+There are multiple ways to verify the authenticity of webhooks, with some being much better than others. The most common way to verify the authenticity of webhooks is by using HMAC signatures using a pre-shared secret key, with a common alternative being the use of asymmetric signatures.
 
 As often the case with security, using the correct cryptographic primitives for the signature verification is not sufficient for a secure implementation. This section provides a secure scheme and additional guidelines for ensuring a simple and secure implementation.
 
@@ -164,27 +164,17 @@ It's important that both the message id and the timestamp not be user controlled
 
 Note: while it's OK (and recommended) to minimize the JSON body when serialized for sending, it's important to make sure that the payload sent is the same as the payload signed. Cryptographic signatures are sensitive to even the smallest changes, and even a stray space can cause the signature to be invalid. This is a very common failure mode as many webhook consumers often accidentally parse the body as json, and then serialize it again, which can cause for failed verification due to minor changes in serialization of JSON (which is not necessarily the same across implementations, or even multiple invocations of the same implementation).
 
-This specification allows for both symmetric and asymmetric signatures, and depending on which is used, may require slightly different handling. There are no limitations on their usage, and for example one consumer may use symmetric, and another may use asymmetric, or even the same consumer may change back and forth between them.
+This specification allows for both symmetric and asymmetric signatures, and depending on which is used, may require slightly different handling. Symmetric signatures are defined below, while asymmetric will be defined in a future version of the spec. There are no limitations on their usage, and for example one consumer may use symmetric, and another may use asymmetric, or even the same consumer may change back and forth between them.
 
 There are a few differences between symmetric and asymmetric signatures and how they are used:
 
-|                      | Symmetric                                                         | Asymmetric                                                                                                            |
-| -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Signature scheme     | `HMAC-SHA256`                                                     | `ed25519`                                                                                                             |
-| Signing secret       | Random. At least 24 bytes (192 bits)                              | Standard ed25519 key pair                                                                                             |
-| Secret serialization | base64 encoded, prefixed with \`whsec_\` for easy identification. | base64 encoded, prefixed with \`whsk_\` for the secret key, and \`whpk_\` for the public key for easy identification. |
-| Signature identifier | `v1`                                                              | `v1a`                                                                                                                 |
+|                      | Symmetric                                                         |
+| -------------------- | ----------------------------------------------------------------- |
+| Signature scheme     | `HMAC-SHA256`                                                     |
+| Signing secret       | Random. At least 24 bytes (192 bits)                              |
+| Secret serialization | base64 encoded, prefixed with \`whsec_\` for easy identification. |
+| Signature identifier | `v1`                                                              |
 
-
-Comparison:
-
-- Symmetric:
-  - Fast. HMAC-SHA256 is blazing fast on modern hardware, and much faster than any asymmetric scheme by orders of magnitude both for the producers and the consumers.
-  - Simple. Symmetric signatures are much more simple than asymmetric ones.
-  - Ubiquitous: HMAC-SHA256 is widely available on every platform and language
-
-- Asymmetric:
-  - Provides an additional layer of security, because the \`whpk_\`, the one that’s shared with consumers, doesn’t need to be secret.
 
 The "secret serialization" row refers to how secrets should be serialized when presented to customers. Having a unique and consistent secret format allows implementations to correctly use the correct scheme without additional configuration, and to ensure keys are used as expected.
 
@@ -192,8 +182,8 @@ The "signature identifier" is the version identifier prefixed to signatures when
 
 ##### Additional considerations:
 
-- Signing keys should be unique per endpoint for symmetric signatures, and unique per endpoint (or potentially customer) for asymmetric signatures. Reusing keys across customers can lead to security issues!
-- It's almost always recommended to choose symmetric signatures when possible, as the performance implications of asymmetric signatures are quite severe.
+- Signing keys should be unique per endpoint for symmetric signatures. Reusing keys across customers can lead to security issues!
+- While most webhook implementations use symmetric signatures due to simplicity, ubiquity of implementations, and performance; asymmetric signatures can lead to better security due to the relative ease of key distribution.
 
 #### Webhook headers (sending metadata to consumers)
 
@@ -224,7 +214,6 @@ webhook-signature: v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1a,hnO3f9T8Y
 Verifying signatures is similar to creating them, though there are a few considerations:
 
 - When verifying symmetric signatures, use a constant time comparison function to prevent oracle attacks.
-- When verifying asymmetric signatures, use the standard verification functions, and don't assume signatures can be compared like symmetric ones.
 - Make sure to verify the `webhook-timestamp` header has a timestamp that is within some allowable tolerance of the current timestamp to prevent replay attacks.
 - Use the `webhook-id` header as an idempotency key to prevent accidentally processing the same webhook more than once (e.g. save the IDs in redis for 5 minutes).
 
