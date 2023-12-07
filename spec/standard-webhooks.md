@@ -171,7 +171,7 @@ There are a few differences between symmetric and asymmetric signatures and how 
 |                      | Symmetric                                                         | Asymmetric                                                                                                            |
 | -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Signature scheme     | `HMAC-SHA256`                                                     | `ed25519`                                                                                                             |
-| Signing secret       | Random. At least 24 bytes (192 bits, 512 maximum)                 | Standard ed25519 key pair                                                                                             |
+| Signing secret       | Random. Between 24 bytes (192 bits) and 64 bytes (512 bits)       | Standard ed25519 key pair                                                                                             |
 | Secret serialization | base64 encoded, prefixed with \`whsec_\` for easy identification. | base64 encoded, prefixed with \`whsk_\` for the secret key, and \`whpk_\` for the public key for easy identification. |
 | Signature identifier | `v1`                                                              | `v1a`                                                                                                                 |
 
@@ -186,7 +186,7 @@ Comparison:
 
 - Asymmetric:
   - Provides an additional layer of security as only the producer needs access to the private key.
-  - Consumers can use \`whpk_\` to verify the signature.
+  - Consumers can use a publicly available (non-secret) key to verify the signature which leads to much better security.
   - Performance: Asymmetric signatures can be more CPU intensive to produce and verify than symmetric ones.
 
 The "secret serialization" row refers to how secrets should be serialized when presented to customers. Having a unique and consistent secret format allows implementations to correctly use the correct scheme without additional configuration, and to ensure keys are used as expected.
