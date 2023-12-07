@@ -171,7 +171,7 @@ There are a few differences between symmetric and asymmetric signatures and how 
 |                      | Symmetric                                                         | Asymmetric                                                                                                            |
 | -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Signature scheme     | `HMAC-SHA256`                                                     | `ed25519`                                                                                                             |
-| Signing secret       | Random. At least 24 bytes (192 bits)                              | Standard ed25519 key pair                                                                                             |
+| Signing secret       | Random. Between 24 bytes (192 bits) and 64 bytes (512 bits)       | Standard ed25519 key pair                                                                                             |
 | Secret serialization | base64 encoded, prefixed with \`whsec_\` for easy identification. | base64 encoded, prefixed with \`whsk_\` for the secret key, and \`whpk_\` for the public key for easy identification. |
 | Signature identifier | `v1`                                                              | `v1a`                                                                                                                 |
 
@@ -179,12 +179,15 @@ There are a few differences between symmetric and asymmetric signatures and how 
 Comparison:
 
 - Symmetric:
-  - Fast. HMAC-SHA256 is blazing fast on modern hardware, and much faster than any asymmetric scheme by orders of magnitude both for the producers and the consumers.
-  - Simple. Symmetric signatures are much more simple than asymmetric ones.
-  - Ubiquitous: HMAC-SHA256 is widely available on every platform and language
+  - Fast. HMAC-SHA256 is fast and often hardware accelerated, and much faster than any asymmetric scheme.
+  - Simple. Symmetric signatures are much more simple and quick to get started with than asymmetric ones.
+  - Ubiquitous: HMAC-SHA256 is widely available on every platform and language.
+  - Warning: Treat the signing key as any other cryptographic secret. If you do not control the security of both the producer and consumer it is recommended you use an asymmetric signature instead.
 
 - Asymmetric:
-  - Provides an additional layer of security, because the \`whpk_\`, the one that’s shared with consumers, doesn’t need to be secret.
+  - Provides an additional layer of security as only the producer needs access to the private key.
+  - Consumers can use a publicly available (non-secret) key to verify the signature which leads to much better security.
+  - Performance: Asymmetric signatures can be more CPU intensive to produce and verify than symmetric ones.
 
 The "secret serialization" row refers to how secrets should be serialized when presented to customers. Having a unique and consistent secret format allows implementations to correctly use the correct scheme without additional configuration, and to ensure keys are used as expected.
 
@@ -193,7 +196,9 @@ The "signature identifier" is the version identifier prefixed to signatures when
 ##### Additional considerations:
 
 - Signing keys should be unique per endpoint for symmetric signatures, and unique per endpoint (or potentially customer) for asymmetric signatures. Reusing keys across customers can lead to security issues!
-- It's almost always recommended to choose symmetric signatures when possible, as the performance implications of asymmetric signatures are quite severe.
+- Prefer asymmetric signature schemes over symmetric ones. Weigh the performance benefits of symmetric signatures against their security drawbacks.
+- Consider key distribution schemes between consumers and producers early on.
+- Consumers should establish a trust list of public keys and signature schemes. Do not blindly trust signatures produced by untrusted public keys (e.g. by reading the public key from an additional header from the request payload).
 
 #### Webhook headers (sending metadata to consumers)
 
@@ -223,8 +228,8 @@ webhook-signature: v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1a,hnO3f9T8Y
 
 Verifying signatures is similar to creating them, though there are a few considerations:
 
-- When verifying symmetric signatures, use a constant time comparison function to prevent oracle attacks.
-- When verifying asymmetric signatures, use the standard verification functions, and don't assume signatures can be compared like symmetric ones.
+- When verifying symmetric signatures, use a constant time comparison function to compare the calculated with the expected signature. Failing to do so can expose consumers to timing-attacks and turn them into signing oracles.
+- When verifying asymmetric signatures, use a battle tested cryptographic library. Keep this dependency up to date.
 - Make sure to verify the `webhook-timestamp` header has a timestamp that is within some allowable tolerance of the current timestamp to prevent replay attacks.
 - Use the `webhook-id` header as an idempotency key to prevent accidentally processing the same webhook more than once (e.g. save the IDs in redis for 5 minutes).
 
@@ -286,7 +291,7 @@ In order to ensure the reliable delivery of webhooks it's important to ensure co
 
 #### Enforcing HTTPS
 
-Depending on the content of the webhooks being sent, it may be advisable to ensure that all webhook endpoints are HTTPs. While the signature scheme above covers the authenticity and validity of the payloads (so they can't be tampered with), it doesn't encrypt the data, which means it may be possible to eavesdrop and view the content of the payloads.
+Depending on the content of the webhooks being sent, it may be advisable to ensure that all webhook endpoints are HTTPS. While the signature scheme above covers the authenticity and validity of the payloads (so they can't be tampered with), it doesn't encrypt the data, which means it may be possible to eavesdrop and view the content of the payloads.
 
 #### Static source IPs
 
