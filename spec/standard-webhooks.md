@@ -219,7 +219,7 @@ To achieve this, the webhook is signed both using the current key, and using an 
 Example headers:
 
 ```
-webhook-id: msg_2KWPBgLlAfxdpx2AI54pPJ85f4W\
+webhook-id: msg_2KWPBgLlAfxdpx2AI54pPJ85f4W
 webhook-timestamp: 1674087231
 webhook-signature: v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1a,hnO3f9T8Ytu9HwrXslvumlUpqtNVqkhqw/enGzPCXe5BdqzCInXqYXFymVJaA7AZdpXwVLPo3mNl8EM+m7TBAg==
 ```
