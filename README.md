@@ -26,7 +26,7 @@ Webhooks are server-to-server, in the sense that both the customer and the servi
 
 ## Read the specification
 
-The latest draft specification can be found at [spec/standard-webhooks.md](./spec/standard-webhooks.md) which tracks the latest commit to the master branch in this repository.
+The latest draft specification can be found at [spec/standard-webhooks.md](./spec/standard-webhooks.md) which tracks the latest commit to the main branch in this repository.
 The human-readable markdown file is the source of truth for the specification.
 
 ## Reference implementations
