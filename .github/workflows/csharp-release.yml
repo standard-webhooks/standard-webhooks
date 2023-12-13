@@ -25,7 +25,7 @@ jobs:
 
       - name: Build
         run: |
-          otnet build --configuration Release StandardWebhooks --no-restore
+          dotnet build --configuration Release StandardWebhooks --no-restore
         working-directory: libraries/csharp
 
       - name: Release
