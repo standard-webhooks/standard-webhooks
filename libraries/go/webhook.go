@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -28,11 +29,11 @@ const webhookSecretPrefix = "whsec_"
 var tolerance time.Duration = 5 * time.Minute
 
 var (
-	errRequiredHeaders     = fmt.Errorf("missing required headers")
-	errInvalidHeaders      = fmt.Errorf("invalid signature headers")
-	errNoMatchingSignature = fmt.Errorf("no matching signature found")
-	errMessageTooOld       = fmt.Errorf("message timestamp too old")
-	errMessageTooNew       = fmt.Errorf("message timestamp too new")
+	errRequiredHeaders     = errors.New("missing required headers")
+	errInvalidHeaders      = errors.New("invalid signature headers")
+	errNoMatchingSignature = errors.New("no matching signature found")
+	errMessageTooOld       = errors.New("message timestamp too old")
+	errMessageTooNew       = errors.New("message timestamp too new")
 )
 
 func NewWebhook(secret string) (*Webhook, error) {
