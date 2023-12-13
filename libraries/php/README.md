@@ -25,9 +25,9 @@ If you use Composer, these dependencies should be handled automatically. If you 
 
  - PHP >= 5.6.0
 
-## Building the library
+## Installing dependencies
 ```sh
-dotnet build
+composer install
 ```
 
 ## Contributing

@@ -112,6 +112,8 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
 
     public function testMultiSigPayloadIsValid()
     {
+        $this->expectNotToPerformAssertions();
+
         $testPayload = new TestPayload(time());
         $sigs = [
             "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=",
@@ -127,6 +129,8 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
 
     public function testSignatureVerificationWithAndWithoutPrefix()
     {
+        $this->expectNotToPerformAssertions();
+
         $testPayload = new TestPayload(time());
 
         $wh = new \StandardWebhooks\Webhook($testPayload->secret);
