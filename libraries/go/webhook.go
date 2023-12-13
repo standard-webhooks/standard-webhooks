@@ -145,7 +145,8 @@ func verifyTimestamp(timestamp time.Time) error {
 	if now.Sub(timestamp) > tolerance {
 		return ErrMessageTooOld
 	}
-	if timestamp.Unix() > now.Add(tolerance).Unix() {
+
+	if timestamp.After(now.Add(tolerance)) {
 		return ErrMessageTooNew
 	}
 
