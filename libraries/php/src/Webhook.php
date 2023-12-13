@@ -4,8 +4,8 @@ namespace StandardWebhooks;
 
 class Webhook
 {
-    const SECRET_PREFIX = "whsec_";
-    const TOLERANCE = 5 * 60;
+    private const SECRET_PREFIX = "whsec_";
+    private const TOLERANCE = 5 * 60;
     private $secret;
 
     public function __construct($secret)

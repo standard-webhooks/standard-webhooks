@@ -1,0 +1,23 @@
+name: Php Lint
+on: 
+  pull_request:
+    paths:
+      - "libraries/php/**"
+      - "libraries/composer.*"
+      - "libraries/phpunit.yml"
+      - ".github/workflows/php-lint.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: php-actions/composer@v6
+        name: Install dependencies
+        with:
+          working_dir: "libraries"
+      - name: run lint
+        working-directory: libraries
+        run: vendor/bin/php-cs-fixer fix -v --dry-run --diff .
+      - name: run tests
+        working-directory: libraries
+        run: vendor/bin/phpunit php/tests
