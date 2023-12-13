@@ -1,10 +1,13 @@
 name: Java Lint
+
 on:
   pull_request:
     paths:
       - "libraries/java/**"
+      - ".github/workflows/java-lint.yml"
+
 jobs:
-  dotnet:
+  build:
     name: Java Lint
     runs-on: ubuntu-latest
 

@@ -1,9 +1,10 @@
-name: Csharp Lint
+name: C# Lint
 
 on:
   pull_request:
     paths:
       - "libraries/csharp/**"
+      - ".github/workflows/csharp-lint.yml"
 
 jobs:
   dotnet:

@@ -1,4 +1,4 @@
-name: Javascript Release
+name: JavaScript Release
 
 on:
   push:
@@ -7,7 +7,9 @@ on:
 
 jobs:
   build:
+    name: JavaScript Release
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
 

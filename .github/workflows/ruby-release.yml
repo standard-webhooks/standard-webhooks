@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  dotnet:
+  build:
     name: Ruby Release
     runs-on: ubuntu-latest
 

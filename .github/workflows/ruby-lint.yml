@@ -4,9 +4,10 @@ on:
   pull_request:
     paths:
       - "libraries/ruby/**"
+      - ".github/workflows/ruby-lint.yml"
 
 jobs:
-  dotnet:
+  build:
     name: Ruby Lint
     runs-on: ubuntu-latest
 

@@ -1,11 +1,16 @@
 name: Python Lint
+
 on:
   pull_request:
     paths:
       - "libraries/python/**"
+      - ".github/workflows/python-lint.yml"
+
 jobs:
   build:
+    name: Python Lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
 
