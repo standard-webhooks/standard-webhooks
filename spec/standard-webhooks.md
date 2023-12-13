@@ -283,7 +283,7 @@ It's important to follow HTTP etiquette when sending webhooks, and respond to HT
 - `502 Bad Gateway` and `504 Gateway Timeout`: Both errors usually indicate that the server is under load, and it's recommended to throttle the requests.
 - The rest of the status codes should be treated as a failure.
 
-Additionally, some responses may also include a `Retry-After` header (e.g. `503 Service Unavailable`), which should be taken into consideration when scheduling the next attempt.
+Additionally, some responses may also include a `retry-after` header (e.g. `503 Service Unavailable`), which should be taken into consideration when scheduling the next attempt.
 
 #### Request timeouts
 
