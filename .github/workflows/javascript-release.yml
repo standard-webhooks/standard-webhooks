@@ -3,7 +3,7 @@ name: Javascript Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -13,17 +13,17 @@ jobs:
 
       - uses: actions/setup-node@v2
         with:
-          node-version: '14.x'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "14.x"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install modules
         run: |
-          cd libraries/javascript
           yarn
+        working-directory: libraries/javascript
 
       - name: Publish
         run: |
-          cd libraries/javascript
           yarn publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        working-directory: libraries/javascript

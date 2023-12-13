@@ -1,6 +1,6 @@
 name: Ruby Lint
 
-on: 
+on:
   pull_request:
     paths:
       - "libraries/ruby/**"
@@ -20,10 +20,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd libraries/ruby
           bundler install
+        working-directory: libraries/ruby
 
       - name: Build
         run: |
-          cd libraries/ruby
           bundler exec rake build
+        working-directory: libraries/ruby

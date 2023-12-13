@@ -11,10 +11,10 @@ jobs:
 
       - name: Install modules
         run: |
-          cd libraries/javascript
           yarn
+        working-directory: libraries/javascript
 
       - name: Lint
         run: |
-          cd libraries/javascript
           yarn run lint
+        working-directory: libraries/javascript

@@ -10,14 +10,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-  
+
       - name: Setup Java
         uses: actions/setup-java@v2
         with:
-          distribution: 'temurin'
-          java-version: '11'
-  
+          distribution: "temurin"
+          java-version: "11"
+
       - name: Build
         run: |
-          cd libraries/java
           ./gradlew build
+        working-directory: libraries/java

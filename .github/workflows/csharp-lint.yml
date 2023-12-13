@@ -20,10 +20,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd libraries/csharp
           dotnet restore
+        working-directory: libraries/csharp
 
       - name: Build
         run: |
-          cd libraries/csharp
           dotnet build --configuration Release StandardWebhooks --no-restore
+        working-directory: libraries/csharp

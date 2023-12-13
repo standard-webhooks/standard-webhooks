@@ -1,5 +1,5 @@
 name: Python Lint
-on: 
+on:
   pull_request:
     paths:
       - "libraries/python/**"
@@ -12,21 +12,21 @@ jobs:
       - uses: actions/setup-python@v2
         name: Install Python
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install deps
         run: |
-          cd libraries/python
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt .
           python -m pip install -r requirements-dev.txt .
+        working-directory: libraries/python
 
       - name: Run linting
         run: |
-          cd libraries/python
           sh ./scripts/lint.sh
+        working-directory: libraries/python
 
       - name: Run test
-        run: | 
-          cd libraries/python
+        run: |
           pytest
+        working-directory: libraries/python

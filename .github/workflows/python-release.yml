@@ -3,7 +3,7 @@ name: Python Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -15,24 +15,24 @@ jobs:
       - uses: actions/setup-python@v2
         name: Install Python
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install deps
         run: |
-          cd libraries/python
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt .
           python -m pip install -r requirements-dev.txt .
+        working-directory: libraries/python
 
       - name: Install setuptools
         run: |
-          cd libraries/python
           python -m pip install setuptools
+        working-directory: libraries/python
 
       - name: Build sdist
         run: |
-          cd libraries/python
           python setup.py sdist
+        working-directory: libraries/python
 
       - uses: pypa/gh-action-pypi-publish@master
         with:
