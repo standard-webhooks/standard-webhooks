@@ -25,11 +25,11 @@ var base64enc = base64.StdEncoding
 var tolerance time.Duration = 5 * time.Minute
 
 var (
-	errRequiredHeaders     = errors.New("missing required headers")
-	errInvalidHeaders      = errors.New("invalid signature headers")
-	errNoMatchingSignature = errors.New("no matching signature found")
-	errMessageTooOld       = errors.New("message timestamp too old")
-	errMessageTooNew       = errors.New("message timestamp too new")
+	ErrRequiredHeaders     = errors.New("missing required headers")
+	ErrInvalidHeaders      = errors.New("invalid signature headers")
+	ErrNoMatchingSignature = errors.New("no matching signature found")
+	ErrMessageTooOld       = errors.New("message timestamp too old")
+	ErrMessageTooNew       = errors.New("message timestamp too new")
 )
 
 type Webhook struct {
@@ -78,7 +78,7 @@ func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance 
 	msgSignature := headers.Get(HeaderWebhookSignature)
 	msgTimestamp := headers.Get(HeaderWebhookTimestamp)
 	if msgId == "" || msgSignature == "" || msgTimestamp == "" {
-		return errRequiredHeaders
+		return ErrRequiredHeaders
 	}
 
 	timestamp, err := parseTimestampHeader(msgTimestamp)
@@ -115,7 +115,7 @@ func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance 
 			return nil
 		}
 	}
-	return errNoMatchingSignature
+	return ErrNoMatchingSignature
 }
 
 func (wh *Webhook) Sign(msgId string, timestamp time.Time, payload []byte) (string, error) {
@@ -132,7 +132,7 @@ func (wh *Webhook) Sign(msgId string, timestamp time.Time, payload []byte) (stri
 func parseTimestampHeader(timestampHeader string) (time.Time, error) {
 	timeInt, err := strconv.ParseInt(timestampHeader, 10, 64)
 	if err != nil {
-		return time.Time{}, errInvalidHeaders
+		return time.Time{}, ErrInvalidHeaders
 	}
 	timestamp := time.Unix(timeInt, 0)
 	return timestamp, nil
@@ -142,10 +142,10 @@ func verifyTimestamp(timestamp time.Time) error {
 	now := time.Now()
 
 	if now.Sub(timestamp) > tolerance {
-		return errMessageTooOld
+		return ErrMessageTooOld
 	}
 	if timestamp.Unix() > now.Add(tolerance).Unix() {
-		return errMessageTooNew
+		return ErrMessageTooNew
 	}
 
 	return nil
