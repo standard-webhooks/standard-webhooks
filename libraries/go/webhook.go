@@ -16,15 +16,11 @@ const (
 	HeaderWebhookID        string = "webhook-id"
 	HeaderWebhookSignature string = "webhook-signature"
 	HeaderWebhookTimestamp string = "webhook-timestamp"
+
+	webhookSecretPrefix string = "whsec_"
 )
 
 var base64enc = base64.StdEncoding
-
-type Webhook struct {
-	key []byte
-}
-
-const webhookSecretPrefix = "whsec_"
 
 var tolerance time.Duration = 5 * time.Minute
 
@@ -35,6 +31,10 @@ var (
 	errMessageTooOld       = errors.New("message timestamp too old")
 	errMessageTooNew       = errors.New("message timestamp too new")
 )
+
+type Webhook struct {
+	key []byte
+}
 
 func NewWebhook(secret string) (*Webhook, error) {
 	key, err := base64enc.DecodeString(strings.TrimPrefix(secret, webhookSecretPrefix))
