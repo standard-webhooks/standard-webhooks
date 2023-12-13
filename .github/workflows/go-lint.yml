@@ -1,12 +1,17 @@
 name: Go Lint
+
 on:
   pull_request:
     paths:
       - "libraries/go/**"
+      - "libraries/go.mod"
       - ".github/workflows/go-lint.yml"
+
 jobs:
   build:
+    name: Go Lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
       - name: Setup go
@@ -20,4 +25,5 @@ jobs:
           working-directory: libraries/go
           args: "--out-format colored-line-number"
       - name: run tests
-        run: cd libraries && go test -v ./...
+        run: go test -v ./...
+        working-directory: libraries

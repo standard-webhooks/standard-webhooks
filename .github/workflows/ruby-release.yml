@@ -3,10 +3,10 @@ name: Ruby Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
-  dotnet:
+  build:
     name: Ruby Release
     runs-on: ubuntu-latest
 
@@ -20,13 +20,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd libraries/ruby
           bundler install
+        working-directory: libraries/ruby
 
       - name: Build
         run: |
-          cd libraries/ruby
           bundler exec rake build
+        working-directory: libraries/ruby
 
       - name: Publish
         run: |
@@ -35,7 +35,7 @@ jobs:
           chmod 0600 "$HOME/.gem/credentials"
           printf -- "---\n:rubygems_api_key: %s\n" "$RUBYGEMS_AUTH_TOKEN" > "$HOME/.gem/credentials"
 
-          cd libraries/ruby
           gem push pkg/*.gem
         env:
           RUBYGEMS_AUTH_TOKEN: "${{secrets.RUBYGEMS_AUTH_TOKEN}}"
+        working-directory: libraries/ruby

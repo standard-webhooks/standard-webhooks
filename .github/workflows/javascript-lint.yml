@@ -1,20 +1,25 @@
-name: Javascript Lint
+name: JavaScript Lint
+
 on:
   pull_request:
     paths:
       - "libraries/javascript/**"
+      - ".github/workflows/javascript-lint.yml"
+
 jobs:
   build:
+    name: JavaScript Lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
 
       - name: Install modules
         run: |
-          cd libraries/javascript
           yarn
+        working-directory: libraries/javascript
 
       - name: Lint
         run: |
-          cd libraries/javascript
           yarn run lint
+        working-directory: libraries/javascript

@@ -3,7 +3,7 @@ name: C# Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   dotnet:
@@ -20,19 +20,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd libraries/csharp
           dotnet restore
+        working-directory: libraries/csharp
 
       - name: Build
         run: |
-          cd libraries/csharp
           dotnet build --configuration Release StandardWebhooks --no-restore
+        working-directory: libraries/csharp
 
       - name: Release
         run: |
-          cd libraries/csharp
           dotnet nuget push "$(find StandardWebhooks/bin/Release/StandardWebhooks.*.nupkg)" \
             --api-key "$NUGET_API_KEY" \
             --source "https://api.nuget.org/v3/index.json"
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        working-directory: libraries/csharp

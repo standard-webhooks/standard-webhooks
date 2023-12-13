@@ -5,12 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'libraries/rust/**'
-      - '.github/workflows/rust-lint.yml'
+      - "libraries/rust/**"
+      - ".github/workflows/rust-lint.yml"
   pull_request:
     paths:
-      - 'libraries/rust/**'
-      - '.github/workflows/rust-lint.yml'
+      - "libraries/rust/**"
+      - ".github/workflows/rust-lint.yml"
 
 jobs:
   test-versions:
@@ -20,33 +20,33 @@ jobs:
       matrix:
         rust: [stable, beta]
     steps:
-    - uses: actions/checkout@master
+      - uses: actions/checkout@master
 
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ matrix.rust }}
-        override: true
-        profile: minimal
-        components: clippy, rustfmt
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          profile: minimal
+          components: clippy, rustfmt
 
-    - uses: Swatinem/rust-cache@v1
-      with:
-        working-directory: libraries/rust
+      - uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: libraries/rust
 
-    - name: Clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --manifest-path libraries/rust/Cargo.toml --all --all-targets --all-features -- -D warnings
+      - name: Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --manifest-path libraries/rust/Cargo.toml --all --all-targets --all-features -- -D warnings
 
-    - name: rustfmt
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --manifest-path libraries/rust/Cargo.toml --all -- --check
+      - name: rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --manifest-path libraries/rust/Cargo.toml --all -- --check
 
-    - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --manifest-path libraries/rust/Cargo.toml --all
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path libraries/rust/Cargo.toml --all
