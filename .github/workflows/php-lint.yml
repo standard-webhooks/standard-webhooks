@@ -1,5 +1,6 @@
-name: Php Lint
-on: 
+name: PHP Lint
+
+on:
   pull_request:
     paths:
       - "libraries/php/**"
@@ -8,16 +9,21 @@ on:
       - ".github/workflows/php-lint.yml"
 jobs:
   build:
+    name: PHP Lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      - uses: php-actions/composer@v6
-        name: Install dependencies
+
+      - name: Install dependencies
+        uses: php-actions/composer@v6
         with:
           working_dir: "libraries"
+
       - name: run lint
         working-directory: libraries
         run: vendor/bin/php-cs-fixer fix -v --dry-run --diff .
+
       - name: run tests
-        working-directory: libraries
         run: vendor/bin/phpunit php/tests
+        working-directory: libraries

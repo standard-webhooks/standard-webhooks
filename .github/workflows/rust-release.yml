@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Hack around cargo stuff
         run: |
@@ -19,19 +19,17 @@ jobs:
           git commit -a -m "Snap"
         working-directory: libraries/rust
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          override: true
-          profile: minimal
           components: clippy, rustfmt
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: libraries/rust -> target
 
       - name: Publish
+        run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --manifest-path libraries/rust/Cargo.toml
+        working-directory: libraries/rust
