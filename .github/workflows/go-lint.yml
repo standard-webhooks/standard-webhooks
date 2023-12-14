@@ -13,17 +13,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Setup go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version-file: libraries/go.mod
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
           working-directory: libraries/go
           args: "--out-format colored-line-number"
+
       - name: run tests
         run: go test -v ./...
         working-directory: libraries

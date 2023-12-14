@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "11"
@@ -31,10 +31,10 @@ jobs:
             echo "signing.gnupg.passphrase=$OSSRH_GPG_SECRET_KEY_PASSWORD"
           } >> ~/.gradle/gradle.properties
         env:
-          NEXUS_USERNAME: "${{secrets.NEXUS_USERNAME}}"
-          NEXUS_PASSWORD: "${{secrets.NEXUS_PASSWORD}}"
-          OSSRH_GPG_KEY_NAME: "${{secrets.OSSRH_GPG_KEY_NAME}}"
-          OSSRH_GPG_SECRET_KEY_PASSWORD: "${{secrets.OSSRH_GPG_SECRET_KEY_PASSWORD}}"
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+          OSSRH_GPG_KEY_NAME: ${{ secrets.OSSRH_GPG_KEY_NAME }}
+          OSSRH_GPG_SECRET_KEY_PASSWORD: ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}
 
       - name: Install GPG Signing Key
         run: |
