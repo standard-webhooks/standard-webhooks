@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,30 +16,30 @@ const (
 	HeaderWebhookID        string = "webhook-id"
 	HeaderWebhookSignature string = "webhook-signature"
 	HeaderWebhookTimestamp string = "webhook-timestamp"
+
+	webhookSecretPrefix string = "whsec_"
 )
 
 var base64enc = base64.StdEncoding
+
+var tolerance time.Duration = 5 * time.Minute
+
+var (
+	ErrRequiredHeaders     = errors.New("missing required headers")
+	ErrInvalidHeaders      = errors.New("invalid signature headers")
+	ErrNoMatchingSignature = errors.New("no matching signature found")
+	ErrMessageTooOld       = errors.New("message timestamp too old")
+	ErrMessageTooNew       = errors.New("message timestamp too new")
+)
 
 type Webhook struct {
 	key []byte
 }
 
-const webhookSecretPrefix = "whsec_"
-
-var tolerance time.Duration = 5 * time.Minute
-
-var (
-	errRequiredHeaders     = fmt.Errorf("Missing Required Headers")
-	errInvalidHeaders      = fmt.Errorf("Invalid Signature Headers")
-	errNoMatchingSignature = fmt.Errorf("No matching signature found")
-	errMessageTooOld       = fmt.Errorf("Message timestamp too old")
-	errMessageTooNew       = fmt.Errorf("Message timestamp too new")
-)
-
 func NewWebhook(secret string) (*Webhook, error) {
 	key, err := base64enc.DecodeString(strings.TrimPrefix(secret, webhookSecretPrefix))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create webhook, err: %w", err)
 	}
 	return &Webhook{
 		key: key,
@@ -77,23 +78,23 @@ func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance 
 	msgSignature := headers.Get(HeaderWebhookSignature)
 	msgTimestamp := headers.Get(HeaderWebhookTimestamp)
 	if msgId == "" || msgSignature == "" || msgTimestamp == "" {
-		return errRequiredHeaders
+		return fmt.Errorf("unable to verify payload, err: %w", ErrRequiredHeaders)
 	}
 
 	timestamp, err := parseTimestampHeader(msgTimestamp)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to verify payload, err: %w", err)
 	}
 
 	if enforceTolerance {
 		if err := verifyTimestamp(timestamp); err != nil {
-			return err
+			return fmt.Errorf("unable to verify payload, err: %w", err)
 		}
 	}
 
 	computedSignature, err := wh.Sign(msgId, timestamp, payload)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to verify payload, err: %w", err)
 	}
 	expectedSignature := []byte(strings.Split(computedSignature, ",")[1])
 
@@ -114,7 +115,8 @@ func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance 
 			return nil
 		}
 	}
-	return errNoMatchingSignature
+
+	return fmt.Errorf("unable to verify payload, err: %w", ErrNoMatchingSignature)
 }
 
 func (wh *Webhook) Sign(msgId string, timestamp time.Time, payload []byte) (string, error) {
@@ -131,7 +133,7 @@ func (wh *Webhook) Sign(msgId string, timestamp time.Time, payload []byte) (stri
 func parseTimestampHeader(timestampHeader string) (time.Time, error) {
 	timeInt, err := strconv.ParseInt(timestampHeader, 10, 64)
 	if err != nil {
-		return time.Time{}, errInvalidHeaders
+		return time.Time{}, fmt.Errorf("unable to parse timestamp header, err: %w", errors.Join(err, ErrInvalidHeaders))
 	}
 	timestamp := time.Unix(timeInt, 0)
 	return timestamp, nil
@@ -141,10 +143,10 @@ func verifyTimestamp(timestamp time.Time) error {
 	now := time.Now()
 
 	if now.Sub(timestamp) > tolerance {
-		return errMessageTooOld
+		return ErrMessageTooOld
 	}
 	if timestamp.Unix() > now.Add(tolerance).Unix() {
-		return errMessageTooNew
+		return ErrMessageTooNew
 	}
 
 	return nil
