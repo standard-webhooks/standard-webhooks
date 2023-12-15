@@ -7,11 +7,11 @@ import pytest
 
 from standardwebhooks.webhooks import Webhook, WebhookVerificationError, hmac_data
 
-defaultMsgID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
-defaultPayload = '{"test": 2432232314}'
-defaultSecret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+DEFAULT_MSG_ID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
+DEFAULT_PAYLOAD = '{"test": 2432232314}'
+DEFAULT_SECRET = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
 
-tolerance = timedelta(minutes=5)
+TOLERANCE = timedelta(minutes=5)
 
 
 class PayloadForTesting:
@@ -24,140 +24,140 @@ class PayloadForTesting:
 
     def __init__(self, timestamp: datetime = datetime.now(tz=timezone.utc)):
         ts = str(floor(timestamp.timestamp()))
-        to_sign = f"{defaultMsgID}.{ts}.{defaultPayload}".encode()
-        signature = base64.b64encode(hmac_data(base64.b64decode(defaultSecret), to_sign)).decode("utf-8")
+        to_sign = f"{DEFAULT_MSG_ID}.{ts}.{DEFAULT_PAYLOAD}".encode()
+        signature = base64.b64encode(hmac_data(base64.b64decode(DEFAULT_SECRET), to_sign)).decode("utf-8")
 
-        self.id = defaultMsgID
+        self.id = DEFAULT_MSG_ID
         self.timestamp = ts
-        self.payload = defaultPayload
-        self.secret = defaultSecret
+        self.payload = DEFAULT_PAYLOAD
+        self.secret = DEFAULT_SECRET
         self.signature = signature
         self.header = {
-            "webhook-id": defaultMsgID,
+            "webhook-id": DEFAULT_MSG_ID,
             "webhook-signature": "v1," + signature,
             "webhook-timestamp": self.timestamp,
         }
 
 
 def test_missing_id_raises_error() -> None:
-    testPayload = PayloadForTesting()
-    del testPayload.header["webhook-id"]
+    test_payload = PayloadForTesting()
+    del test_payload.header["webhook-id"]
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_timestamp_raises_error() -> None:
-    testPayload = PayloadForTesting()
-    del testPayload.header["webhook-timestamp"]
+    test_payload = PayloadForTesting()
+    del test_payload.header["webhook-timestamp"]
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_invalid_timestamp_raises_error() -> None:
-    testPayload = PayloadForTesting()
-    testPayload.header["webhook-timestamp"] = "hello"
+    test_payload = PayloadForTesting()
+    test_payload.header["webhook-timestamp"] = "hello"
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_missing_signature_raises_error() -> None:
-    testPayload = PayloadForTesting()
-    del testPayload.header["webhook-signature"]
+    test_payload = PayloadForTesting()
+    del test_payload.header["webhook-signature"]
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_invalid_signature_raises_error() -> None:
-    testPayload = PayloadForTesting()
-    testPayload.header["webhook-signature"] = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OA="
+    test_payload = PayloadForTesting()
+    test_payload.header["webhook-signature"] = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OA="
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_valid_signature_is_valid_and_returns_json() -> None:
-    testPayload = PayloadForTesting()
+    test_payload = PayloadForTesting()
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
-    json = wh.verify(testPayload.payload, testPayload.header)
+    json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314
 
 
 def test_valid_unbranded_signature_is_valid_and_returns_json() -> None:
-    testPayload = PayloadForTesting()
+    test_payload = PayloadForTesting()
 
-    unbrandedHeaders = {
-        "webhook-id": testPayload.header["webhook-id"],
-        "webhook-signature": testPayload.header["webhook-signature"],
-        "webhook-timestamp": testPayload.header["webhook-timestamp"],
+    unbranded_headers = {
+        "webhook-id": test_payload.header["webhook-id"],
+        "webhook-signature": test_payload.header["webhook-signature"],
+        "webhook-timestamp": test_payload.header["webhook-timestamp"],
     }
-    testPayload.header = unbrandedHeaders
+    test_payload.header = unbranded_headers
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
-    json = wh.verify(testPayload.payload, testPayload.header)
+    json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314
 
 
 def test_old_timestamp_fails() -> None:
-    testPayload = PayloadForTesting(datetime.now(tz=timezone.utc) - tolerance - timedelta(seconds=1))
+    test_payload = PayloadForTesting(datetime.now(tz=timezone.utc) - TOLERANCE - timedelta(seconds=1))
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_new_timestamp_fails() -> None:
-    testPayload = PayloadForTesting(datetime.now(tz=timezone.utc) + tolerance + timedelta(seconds=1))
+    test_payload = PayloadForTesting(datetime.now(tz=timezone.utc) + TOLERANCE + timedelta(seconds=1))
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
     with pytest.raises(WebhookVerificationError):
-        wh.verify(testPayload.payload, testPayload.header)
+        wh.verify(test_payload.payload, test_payload.header)
 
 
 def test_multi_sig_payload_is_valid() -> None:
-    testPayload = PayloadForTesting()
+    test_payload = PayloadForTesting()
     sigs = [
         "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=",
         "v2,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=",
-        testPayload.header["webhook-signature"],  # valid signature
+        test_payload.header["webhook-signature"],  # valid signature
         "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=",
     ]
-    testPayload.header["webhook-signature"] = " ".join(sigs)
+    test_payload.header["webhook-signature"] = " ".join(sigs)
 
-    wh = Webhook(testPayload.secret)
+    wh = Webhook(test_payload.secret)
 
-    json = wh.verify(testPayload.payload, testPayload.header)
+    json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314
 
 
 def test_signature_verification_with_and_without_prefix() -> None:
-    testPayload = PayloadForTesting()
+    test_payload = PayloadForTesting()
 
-    wh = Webhook(testPayload.secret)
-    json = wh.verify(testPayload.payload, testPayload.header)
+    wh = Webhook(test_payload.secret)
+    json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314
 
-    wh = Webhook("whsec_" + testPayload.secret)
+    wh = Webhook("whsec_" + test_payload.secret)
 
-    json = wh.verify(testPayload.payload, testPayload.header)
+    json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314
 
 
@@ -170,5 +170,4 @@ def test_sign_function() -> None:
 
     wh = Webhook(key)
     signature = wh.sign(msg_id=msg_id, timestamp=timestamp, data=payload)
-    print(signature)
     assert signature == expected
