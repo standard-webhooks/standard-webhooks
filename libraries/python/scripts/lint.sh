@@ -1,8 +1,7 @@
-#!/usr/bin/env bash
-
+#!/usr/bin/env sh
 set -ex
 
-mypy standardwebhooks
-isort --check-only standardwebhooks
-black standardwebhooks --check
-flake8 standardwebhooks
+mypy standardwebhooks tests
+isort --check-only standardwebhooks tests
+black standardwebhooks tests --check
+flake8 standardwebhooks tests
