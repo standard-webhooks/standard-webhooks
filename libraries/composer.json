@@ -3,7 +3,7 @@
     "type": "library",
     "description": "Standard Webhooks PHP Library",
     "keywords": ["webhooks"],
-    "homepage": "https://github.com/standard-webhooks/libraries",
+    "homepage": "https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/php",
     "license": "MIT",
     "authors": [
         {
