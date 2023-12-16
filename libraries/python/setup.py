@@ -5,10 +5,7 @@ from setuptools import setup, find_packages  # noqa: H301
 
 # To install the library, run the following
 #
-# python setup.py install
-#
-# prerequisite: setuptools
-# http://pypi.python.org/pypi/setuptools
+# pip install .
 
 
 def read_file(filepath):
