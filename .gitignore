@@ -1,2 +1,7 @@
 # Mac files
 .DS_Store
+
+# PHP library
+libraries/composer.lock
+libraries/vendor/
+
