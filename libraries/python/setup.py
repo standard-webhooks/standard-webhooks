@@ -1,7 +1,8 @@
+import codecs
 import os
 import re
-import codecs
-from setuptools import setup, find_packages  # noqa: H301
+
+from setuptools import find_packages, setup
 
 # To install the library, run the following
 #
