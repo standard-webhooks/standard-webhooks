@@ -24,14 +24,14 @@ jobs:
           python -m pip install -r requirements-dev.txt .
         working-directory: libraries/python
 
-      - name: Install setuptools
+      - name: Install build
         run: |
-          python -m pip install setuptools
+          pip install build~=1.0.3
         working-directory: libraries/python
 
       - name: Build sdist
         run: |
-          python setup.py sdist
+          pyproject-build . --sdist
         working-directory: libraries/python
 
       - uses: pypa/gh-action-pypi-publish@release/v1
