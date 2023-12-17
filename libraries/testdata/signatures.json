@@ -1,0 +1,9 @@
+[
+    {
+        "id": "msg_p5jXN8AQM9LWM0D4loKWxJek",
+        "timestamp": 1696200454,
+        "secret": "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw",
+        "payload": "{\"type\": \"example.created\", \"timestamp\":\"2023-09-28T19:20:22+00:00\", \"data\":{\"str\":\"string\",\"bool\":true,\"int\":42}}",
+        "signature":"v1,GgjvufBlIj71MBIVQotYGb+xEC3LNXCsIZp0HsDC8qs="
+    }
+]
