@@ -49,7 +49,7 @@ class Webhook
             $version = $sigParts[0];
             $passedSignature = $sigParts[1];
 
-            if (strcmp($version, "v1") != 0) {
+            if (strcmp($version, "v1") !== 0) {
                 continue;
             }
 
