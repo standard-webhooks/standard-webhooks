@@ -1,0 +1,10 @@
+// add elixir LS settings here.
+{
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "elixirLS.dialyzerEnabled": true,
+    "cSpell.words": [
+        "Eventrelay",
+        "todos"
+    ]
+}
