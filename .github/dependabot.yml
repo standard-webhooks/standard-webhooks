@@ -4,35 +4,71 @@ updates:
   directory: /
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: gomod
   directory:  /libraries
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: npm
   directory: /libraries/javascript
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: pip
   directory: /libraries/python
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: cargo
   directory: /libraries/rust
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: gradle
   directory: /libraries/java
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: composer
   directory: /libraries
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: nuget
   directory: /libraries/csharp
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
 - package-ecosystem: bundler
   directory: /libraries/ruby
   schedule:
     interval: weekly
+  ignore:
+  - dependency-name: "*"
+    update-types:
+      - "version-update:semver-patch"
