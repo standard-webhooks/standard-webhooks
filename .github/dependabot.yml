@@ -1,0 +1,38 @@
+version: 2
+updates:
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory:  /libraries
+  schedule:
+    interval: weekly
+- package-ecosystem: npm
+  directory: /libraries/javascript
+  schedule:
+    interval: weekly
+- package-ecosystem: pip
+  directory: /libraries/python
+  schedule:
+    interval: weekly
+- package-ecosystem: cargo
+  directory: /libraries/rust
+  schedule:
+    interval: weekly
+- package-ecosystem: gradle
+  directory: /libraries/java
+  schedule:
+    interval: weekly
+- package-ecosystem: composer
+  directory: /libraries
+  schedule:
+    interval: weekly
+- package-ecosystem: nuget
+  directory: /libraries/csharp
+  schedule:
+    interval: weekly
+- package-ecosystem: bundler
+  directory: /libraries/ruby
+  schedule:
+    interval: weekly
