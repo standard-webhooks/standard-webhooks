@@ -21,7 +21,7 @@
     "test": "jest",
     "prepublishOnly": "yarn lint",
     "lint:eslint": "eslint --ignore-path .lintignore --ext .js,.jsx,.ts,.tsx src",
-    "lint:prettier": "prettier --ignore-path .lintignore src/**.ts",
+    "lint:prettier": "prettier --ignore-path .lintignore --write src/**.ts",
     "lint": "yarn run lint:prettier && yarn run lint:eslint --max-warnings=0",
     "lint:fix": "yarn run lint:prettier --write && yarn run lint:eslint --fix"
   },
