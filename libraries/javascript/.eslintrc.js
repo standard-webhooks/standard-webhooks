@@ -64,9 +64,9 @@ module.exports = {
     "func-call-spacing": "off",
     "@typescript-eslint/func-call-spacing": ["error"],
     "space-before-function-paren": ["error", {
-        "anonymous": "always",
-        "named": "never",
-        "asyncArrow": "always"
+      "anonymous": "always",
+      "named": "never",
+      "asyncArrow": "always"
     }],
     "space-in-parens": ["error", "never"],
     "space-before-blocks": "error",
