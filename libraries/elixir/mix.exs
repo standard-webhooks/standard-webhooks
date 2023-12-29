@@ -41,7 +41,7 @@ defmodule StandardWebhooks.MixProject do
   end
 
   defp description() do
-    "A few sentences (a paragraph) describing the project."
+    "Elixir library for creating and verifying Standard Webhooks signatures."
   end
 
   defp package() do
