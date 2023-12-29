@@ -1,0 +1,65 @@
+name: Elixir Lint
+
+on:
+  pull_request:
+    paths:
+      - "libraries/elixir/**"
+      - ".github/workflows/elixir-lint.yml"
+
+jobs:
+  build:
+    name: Elixir Lint
+    runs-on: ubuntu-latest
+
+    env:
+      MIX_ENV: test
+      # CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          version-type: strict
+          version-file: .tool-versions
+
+      - name: Cache deps
+        id: mix-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install deps (if not cached)
+        if: steps.mix-cache.outputs.cache-hit != 'true'
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+        working-directory: libraries/elixir
+
+      - name: Check that `mix format` has been run
+        run: |
+          mix format --check-formatted
+        working-directory: libraries/elixir
+
+      - name: Check warnings
+        run: |
+          mix compile --warnings-as-errors
+        working-directory: libraries/elixir
+
+      - name: Run tests
+        run: |
+          mix test
+        working-directory: libraries/elixir
+
+        # See mix.exs aliases quality task
+      - name: Check code quality, security and format
+        run: |
+          mix quality --strict
+        working-directory: libraries/elixir

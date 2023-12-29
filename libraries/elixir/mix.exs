@@ -7,7 +7,9 @@ defmodule StandardWebhooks.MixProject do
       version: "0.1.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      aliases: aliases(),
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -22,7 +24,25 @@ defmodule StandardWebhooks.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:plug, "~> 1.15"}
+      {:plug, "~> 1.15"},
+
+      # Code quality
+      {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.10", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      # Run tests and check coverage
+      test: ["test", "coveralls"],
+      # Run to check the quality of your code
+      quality: [
+        "format --check-formatted",
+        "sobelow --config",
+        "credo"
+      ]
     ]
   end
 end

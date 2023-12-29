@@ -1,7 +1,6 @@
 defmodule StandardWebhooks do
   @moduledoc """
   Documentation for `Standard Webhooks`
-  Ported from webhoox: https://github.com/cpursley/webhoox
   """
 
   import Plug.Conn
