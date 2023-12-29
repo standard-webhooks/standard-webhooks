@@ -1,0 +1,42 @@
+name: Elixir Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Elixir Release
+    runs-on: ubuntu-latest
+
+    env:
+        MIX_ENV: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          version-type: strict
+          version-file: .tool-versions
+
+      - name: Install dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+        working-directory: libraries/elixir
+
+      - name: Build
+        run: |
+          mix compile
+          mix release
+        working-directory: libraries/elixir
+
+      # https://hex.pm/docs/publish#publishing-from-ci
+      - name: Publish package to hex.pm
+        run: |
+          HEX_API_KEY=${{secrets.HEX_API_KEY}} mix hex.publish --yes
+        working-directory: libraries/elixir
