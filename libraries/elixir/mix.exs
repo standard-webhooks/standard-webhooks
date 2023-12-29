@@ -7,8 +7,12 @@ defmodule StandardWebhooks.MixProject do
       version: "0.1.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
+      description: description(),
+      package: package(),
       deps: deps(),
       aliases: aliases(),
+      source_url:
+        "https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/elixir",
       test_coverage: [tool: ExCoveralls]
     ]
   end
@@ -26,10 +30,30 @@ defmodule StandardWebhooks.MixProject do
       {:jason, "~> 1.4"},
       {:plug, "~> 1.15"},
 
-      # Code quality
+      # Dev
+      {:ex_doc, "~> 0.14", only: :dev, runtime: false},
+
+      # Test
       {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.10", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp description() do
+    "A few sentences (a paragraph) describing the project."
+  end
+
+  defp package() do
+    [
+      # These are the default files included in the package
+      files: ~w(lib priv .formatter.exs mix.exs README* readme* LICENSE*
+                license* CHANGELOG* changelog* src),
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" =>
+          "https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/elixir"
+      }
     ]
   end
 
