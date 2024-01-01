@@ -5,8 +5,10 @@ Elixir library for Standard Webhooks
 Verifying a webhook payload:
 
 ```elixir
-StandardWebhooks.verify(plug_conn, webhook_payload, webhook_secret)
+StandardWebhooks.verify(webhook_payload, plug_conn, webhook_secret)
 ```
+
+Note: [Plug](https://hexdocs.pm/plug/Plug.Conn.html#t:headers/0) contains the request headers.
 
 Signing a webhook
 

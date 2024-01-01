@@ -10,18 +10,18 @@ defmodule StandardWebhooks do
   @tolerance 5 * 60
 
   @doc """
-  Verify a Standard Webhook given a Plug.Conn, payload and secret
+  Verify a Standard Webhook given a payload, Plug.Conn and secret
   """
-  @spec verify(Plug.Conn.t(), map(), binary()) :: boolean()
-  def verify(conn, payload, @secret_prefix <> encoded_secret) do
-    verify_signature(conn, payload, Base.decode64!(encoded_secret))
+  @spec verify(map(), Plug.Conn.t(), binary()) :: boolean()
+  def verify(payload, conn, @secret_prefix <> encoded_secret) do
+    verify_signature(payload, conn, Base.decode64!(encoded_secret))
   end
 
-  def verify(conn, payload, secret) do
-    verify_signature(conn, payload, secret)
+  def verify(payload, conn, secret) do
+    verify_signature(payload, conn, secret)
   end
 
-  defp verify_signature(conn, payload, secret) do
+  defp verify_signature(payload, conn, secret) do
     {id, timestamp, header_signatures} = get_req_headers(conn)
 
     signature =

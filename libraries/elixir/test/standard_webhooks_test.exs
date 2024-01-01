@@ -82,19 +82,19 @@ defmodule StandardWebhooksTest do
     test "return true when valid encoded_secret and signature", %{signature: signature} do
       conn = setup_webhook(signature)
 
-      assert StandardWebhooks.verify(conn, @payload, @encoded_secret)
+      assert StandardWebhooks.verify(@payload, conn, @encoded_secret)
     end
 
     test "return true when valid secret and signature", %{signature: signature} do
       conn = setup_webhook(signature)
 
-      assert StandardWebhooks.verify(conn, @payload, @secret)
+      assert StandardWebhooks.verify(@payload, conn, @secret)
     end
 
     test "return false when valid secret and invalid signature" do
       conn = setup_webhook("invalid signature")
 
-      assert false == StandardWebhooks.verify(conn, @payload, @secret)
+      assert false == StandardWebhooks.verify(@payload, conn, @secret)
     end
 
     test "raises error when missing webhook header", %{signature: signature} do
@@ -104,7 +104,7 @@ defmodule StandardWebhooksTest do
         |> put_req_header("webhook-signature", signature)
 
       assert_raise ArgumentError, "Missing required headers", fn ->
-        StandardWebhooks.verify(connection, @payload, @secret)
+        StandardWebhooks.verify(@payload, connection, @secret)
       end
     end
   end
