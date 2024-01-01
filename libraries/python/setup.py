@@ -72,7 +72,7 @@ setup(
     name=PKG_NAME,
     version=get_version_string(),
     description="Standard Webhooks",
-    author="Svix",
+    author="Standard Webhooks",
     license="MIT",
     keywords=[
         "webhooks",

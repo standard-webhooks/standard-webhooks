@@ -1,10 +1,10 @@
 [package]
 name = "standardwebhooks"
 version = "1.3.0"
-authors = ["Svix Inc. <oss@svix.com>"]
+authors = ["Standard Webhooks"]
 edition = "2021"
 description="Rust library for creating and verifying webhook signatures."
-repository="https://github.com/standard-webhooks/libraries"
+repository="https://github.com/standard-webhooks/standard-webhooks"
 license="MIT"
 keywords=["webhooks"]
 categories = ["development-tools", "asynchronous", "network-programming", "web-programming"]

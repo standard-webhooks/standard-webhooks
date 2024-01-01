@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	standardwebhooks "github.com/standard-webhooks/libraries/go"
+	standardwebhooks "github.com/standard-webhooks/standard-webhooks/libraries/go"
 )
 
 var defaultMsgID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
