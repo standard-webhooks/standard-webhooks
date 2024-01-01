@@ -21,6 +21,12 @@ updates:
   schedule:
     interval: weekly
   ignore:
+  groups:
+    lint:
+      patterns:
+      - "eslint"
+      - "@typescript-eslint/*"
+      - "prettier"
   - dependency-name: "*"
     update-types:
       - "version-update:semver-patch"
