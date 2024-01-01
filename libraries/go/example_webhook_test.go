@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	standardwebhooks "github.com/standard-webhooks/libraries/go"
+	standardwebhooks "github.com/standard-webhooks/standard-webhooks/libraries/go"
 )
 
 const (
