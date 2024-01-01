@@ -20,13 +20,13 @@ updates:
   directory: /libraries/javascript
   schedule:
     interval: weekly
-  ignore:
   groups:
     lint:
       patterns:
       - "eslint"
       - "@typescript-eslint/*"
       - "prettier"
+  ignore:
   - dependency-name: "*"
     update-types:
       - "version-update:semver-patch"
