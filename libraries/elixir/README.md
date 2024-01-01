@@ -1,7 +1,5 @@
 Elixir library for Standard Webhooks
 
-Need to handle inbound webhooks in Elixir? Check out [webhoox](https://github.com/cpursley/webhoox).
-
 # Example
 
 Verifying a webhook payload:
