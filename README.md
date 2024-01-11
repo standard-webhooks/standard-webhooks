@@ -41,6 +41,7 @@ There are reference implementations for the signature verification theme for a v
 - [Ruby](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/ruby)
 - [PHP](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/php)
 - [C#](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/csharp)
+- [Elixir](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/elixir)
 
 
 ## Technical steering committee
