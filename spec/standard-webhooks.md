@@ -299,7 +299,7 @@ Some webhook consumers have firewalls (or other security mechanisms) in front of
 
 #### Server side request forgery (SSRF)
 
-A server-side request forgery (SSRF) attack is when an attacker abuses functionality on the server to read or update internal resources. In the attack, the attacker supplies or modifies a URL which the server will then make a call to. By carefully selecting the URLs, the attacker may be able to read server configuration such as AWS metadata, connect to internal services like http enabled databases or perform post requests towards internal services which are not intended to be exposed.
+A server-side request forgery (SSRF) attack is when an attacker abuses functionality on the server to read or update internal resources. In the attack, the attacker supplies or modifies a URL which the server will then make a call to. By carefully selecting the URLs, the attacker may be able to read server configuration such as AWS metadata, connect to internal services like HTTP-enabled databases or perform post requests towards internal services which are not intended to be exposed.
 
 Webhooks implementations are especially vulnerable to SSRF as they let their consumers (customers) add any URLs they want, which will be called from the internal webhook system.
 
