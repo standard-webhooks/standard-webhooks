@@ -14,13 +14,13 @@ License: The Apache License, Version 2.0.
 
 Webhooks are becoming increasingly popular and are used by many of the world's top companies for sending events to users of their APIs. However, the ecosystem is fragmented, with each webhook provider using different implementations and varying quality. Even high quality implementations vary, making them inherently incompatible. This fragmentation is a pain for the providers and consumers, stifling innovation.
 
-For consumers, this means handling webhooks differently for every provider, relearning how to verify webhooks, and encountering gotchas with bespoke implementations. For providers, this means reinventing the wheel, redesigning for issues that have already been solved (security, forward compatibility, etc.). 
+For consumers, this means handling webhooks differently for every provider, relearning how to verify webhooks, and encountering gotchas with bespoke implementations. For providers, this means reinventing the wheel, redesigning for issues that have already been solved (security, forward compatibility, etc.).
 
 We propose a simple solution: standardize webhooks across the industry. This design document outlines our proposal, a set of strict webhook guidelines based on the existing industry best practices. We call it "Standard Webhooks".
 
 We believe "Standard Webhooks" can do for webhooks what JWT did for API authentication. Adopting a common protocol that is consistent and supported by different implementations will solve the above issues, and will enable new tools and innovations in webhook ecosystem.
 
-To achieve this, we have created an open source and community-driven set of tools and guidelines for sending webhooks. 
+To achieve this, we have created an open source and community-driven set of tools and guidelines for sending webhooks.
 
 ## What are Webhooks?
 
@@ -76,7 +76,7 @@ Example payload:
 
 There are two main approaches to webhook payloads: "thin" and "full" payloads. Full payloads consist of the full information about the event, the status of the related entities, and everything that's changed. A thin payload will only include identifiers to the affected entities, and potentially information about the change itself.
 
-Let's consider a fictional address book management service. It's a simple service where you can update and maintain your address book, and it sends webhooks every time data changes. 
+Let's consider a fictional address book management service. It's a simple service where you can update and maintain your address book, and it sends webhooks every time data changes.
 
 Now, let's assume we just created a new contact, here are the payloads that will be sent:
 
@@ -138,9 +138,9 @@ The unique identifier is a unique identifier associated with a specific event tr
 
 #### Signature scheme
 
-As mentioned above, it's important to sign both the body of the webhook, and the associated metadata. To achieve this, the metadata and the body are concatenated (delimited by full-stops) and then signed.
+As mentioned above, it's important to sign both the body of the webhook and the associated metadata. To achieve this, the message's: ID, timestamp and body are concatenated (delimited by full-stops) and then signed.
 
-The content to be signed is therefore: `{msg_id}.{timestamp}.{payload}`.
+The content to be signed is therefore: `msg_id.timestamp.payload`.
 
 For example:
 
