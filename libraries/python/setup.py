@@ -4,10 +4,6 @@ import re
 
 from setuptools import find_packages, setup
 
-# To install the library, run the following
-#
-# pip install .
-
 
 def read_file(filepath):
     """Read content from a UTF-8 encoded text file."""
@@ -20,21 +16,21 @@ PKG_DIR = os.path.abspath(os.path.dirname(__file__))
 META_PATH = os.path.join(PKG_DIR, PKG_NAME, "__init__.py")
 META_CONTENTS = read_file(META_PATH)
 PKG_REQUIRES = [
-    "httpx >=0.23.0",
-    "attrs >=21.3.0",
-    "python-dateutil",
+    "attrs >= 21.3.0",
     "Deprecated",
-    "types-python-dateutil",
+    "httpx >= 0.23.0",
+    "python-dateutil",
     "types-Deprecated",
+    "types-python-dateutil",
 ]
 
 
 def find_meta(meta):
     """Extract __*meta*__ from META_CONTENTS."""
     meta_match = re.search(r"^__{meta}__\s+=\s+['\"]([^'\"]*)['\"]".format(meta=meta), META_CONTENTS, re.M)
-
     if meta_match:
         return meta_match.group(1)
+
     raise RuntimeError(f"Unable to find __{meta}__ string in package meta file")
 
 
@@ -45,6 +41,7 @@ def is_canonical_version(version):
         r"*((a|b|rc)(0|[1-9][0-9]*))?(\.post(0|[1-9][0-9]*))"
         r"?(\.dev(0|[1-9][0-9]*))?$"
     )
+
     return re.match(pattern, version) is not None
 
 
@@ -55,9 +52,7 @@ def get_version_string():
 
     # Check validity
     if not is_canonical_version(version_string):
-        message = 'The detected version string "{}" is not in canonical ' "format as defined in PEP 440.".format(
-            version_string
-        )
+        message = f"The detected version string {version_string} is not in canonical format as defined in PEP 440."
         raise ValueError(message)
 
     return version_string
@@ -92,7 +87,10 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     python_requires=">=3.6",
     install_requires=PKG_REQUIRES,
