@@ -29,7 +29,7 @@ func Example_signatureFlow() {
 	payload := `{"type": "example.created", "timestamp":"2023-09-28T19:20:22+00:00", "data":{"str":"string","bool":true,"int":42}}`
 
 	// signing the payload with the webhook handler
-	signature, err := wh.Sign(id, time.Now(), []byte(payload))
+	signature, err := wh.Sign(id, ts, []byte(payload))
 	if err != nil {
 		log.Fatal(err)
 	}
