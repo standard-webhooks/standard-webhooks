@@ -26,7 +26,7 @@ To achieve this, we have created an open source and community-driven set of tool
 
 Webhooks are a common name for HTTP callbacks, and are a way for services to notify each other of events. Webhooks are part of a service's API, though you can think of them as a sort of a "reverse API". When a client wants to make a request to a service they make an API call, and when the service wants to notify the client of an event the service triggers a webhook ("a user has paid", "task has finished", etc.).
 
-Webhooks are server-to-server, in the sense that both the customer and the service in the above description, should be operating HTTP servers, one to receive the API calls and one to receive the webhooks.It's important to note that while webhooks usually co-exist with a traditional API, this is not a requirement, and some services send webhooks without offering a traditional API.
+Webhooks are server-to-server, in the sense that both the customer and the service in the above description, should be operating HTTP servers, one to receive the API calls and one to receive the webhooks. It's important to note that while webhooks usually co-exist with a traditional API, this is not a requirement, and some services send webhooks without offering a traditional API.
 
 ## Design Goals
 
@@ -182,7 +182,7 @@ Comparison:
   - Fast. HMAC-SHA256 is fast and often hardware accelerated, and much faster than any asymmetric scheme.
   - Simple. Symmetric signatures are much more simple and quick to get started with than asymmetric ones.
   - Ubiquitous: HMAC-SHA256 is widely available on every platform and language.
-  - Warning: Treat the signing key as any other cryptographic secret. If you do not control the security of both the producer and consumer it is recommended you use an asymmetric signature instead.
+  - Warning: Treat the signing key as any other cryptographic secret. If you do not control the security of both the producer and consumer, it is recommended you use an asymmetric signature instead.
 
 - Asymmetric:
   - Provides an additional layer of security as only the producer needs access to the private key.
@@ -287,7 +287,7 @@ Additionally, some responses may also include a `retry-after` header (e.g. `503 
 
 #### Request timeouts
 
-In order to ensure the reliable delivery of webhooks it's important to ensure consumers have enough time to process and acknowledge the processing of requests. A recommended request timeout value for webhooks is somewhere between 15 and 30s.
+In order to ensure the reliable delivery of webhooks, it's important to ensure consumers have enough time to process and acknowledge the processing of requests. A recommended request timeout value for webhooks is somewhere between 15 and 30s.
 
 #### Enforcing HTTPS
 
