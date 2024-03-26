@@ -305,6 +305,9 @@ Webhooks implementations are especially vulnerable to SSRF as they let their con
 
 The main way to protect against SSRF is to prevent the webhooks from calling into internal networks and services. To achieve this you'd want to do two things: the first would be to proxy all webhook requests through a special proxy (like[  smokescreen](https://github.com/stripe/smokescreen)) that filters internal IP addresses, and the second would be to put the webhook workers (or proxy) in their own private subnet that can't access internal services.
 
+#### Additional References
+ - [OWASP API Top 10, API7:2023 Server Side Request Forgery](https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/)
+
 ### Additional functionality
 
 This section describes additional functionality that is not a core requirement for a webhook implementation but provide significant benefits to webhook producers and consumers.
