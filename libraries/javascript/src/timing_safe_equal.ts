@@ -8,7 +8,7 @@ function assert(expr: unknown, msg = ""): asserts expr {
   }
 }
 
-/** Compare to array buffers or data views in a way that timing based attacks
+/** Compare two array buffers or data views in a way that timing based attacks
  * cannot gain information about the platform. */
 export function timingSafeEqual(
   a: ArrayBufferView | ArrayBufferLike | DataView,
