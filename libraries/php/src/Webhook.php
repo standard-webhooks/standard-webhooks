@@ -18,7 +18,7 @@ class Webhook
 
     public static function fromRaw($secret)
     {
-        $obj = new self();
+        $obj = new self('');
         $obj->secret = $secret;
         return $obj;
     }
