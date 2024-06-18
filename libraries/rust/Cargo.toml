@@ -13,7 +13,7 @@ categories = ["development-tools", "asynchronous", "network-programming", "web-p
 
 [dependencies]
 hmac-sha256 = "1"
-base64 = "0.21.3"
+base64 = "0.22.1"
 time = "0.3"
 thiserror = ">1.0.30"
 http = "1.0"
