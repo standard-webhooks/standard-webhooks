@@ -27,7 +27,7 @@ dependencies {
     implementation "com.google.code.findbugs:jsr305:3.0.2"
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
-    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'io.gsonfire:gson-fire:1.9.0'
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.14.0'
     implementation 'org.threeten:threetenbp:1.6.8'
