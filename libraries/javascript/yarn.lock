@@ -769,10 +769,10 @@
   resolved "https://registry.yarnpkg.com/@stablelib/base64/-/base64-1.0.1.tgz#bdfc1c6d3a62d7a3b7bbc65b6cce1bb4561641be"
   integrity sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==
 
-"@stablelib/utf8@^1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-1.0.2.tgz#737974c235b12542356c6c2c062e6985d6139b11"
-  integrity sha512-sDL1aB2U8FIpj7SjQJMxbOFIFkKvDKQGPHSrYejHZhtLNSK3qHe6ZIfa0woWkOiaJsdYslFzrc0VWXJZHmSIQQ==
+"@stablelib/utf8@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-2.0.0.tgz#05725ef9d39ed10a017e1b6e01374bd998c83167"
+  integrity sha512-bHaUduwFKYgj6rRvA5udyyg+ASx6gJZiQaXvfBHb7A2r+X9tRIKJ/VmpQKFQnEMInpBTh7jJLy+Gt99GH9YZ9g==
 
 "@types/babel__core@^7.1.14":
   version "7.20.1"
