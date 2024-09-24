@@ -30,7 +30,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'io.gsonfire:gson-fire:1.9.0'
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.17.0'
-    implementation 'org.threeten:threetenbp:1.6.8'
+    implementation 'org.threeten:threetenbp:1.7.0'
     implementation 'javax.annotation:javax.annotation-api:1.3.2'
     testImplementation 'junit:junit:4.13.1'
 }
