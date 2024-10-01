@@ -5,7 +5,7 @@ module StandardWebhooks
     attr_reader :message
 
     def initialize(message = nil)
-        @message = message
+      @message = message
     end
   end
 

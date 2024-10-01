@@ -14,7 +14,7 @@ module StandardWebhooks
 
     def initialize(secret)
       if secret.start_with?(SECRET_PREFIX)
-          secret = secret[SECRET_PREFIX.length..-1]
+        secret = secret[SECRET_PREFIX.length..-1]
       end
 
       @secret = Base64.decode64(secret)
