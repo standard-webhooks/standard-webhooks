@@ -22,6 +22,7 @@ module StandardWebhooks
       res == 0
     end
   end
+
   module_function :fixed_length_secure_compare
 
   # Secure string comparison for strings of variable length.
@@ -33,5 +34,6 @@ module StandardWebhooks
   def secure_compare(a, b)
     a.length == b.length && fixed_length_secure_compare(a, b)
   end
+
   module_function :secure_compare
 end

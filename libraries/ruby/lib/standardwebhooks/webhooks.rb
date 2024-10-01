@@ -24,6 +24,7 @@ module StandardWebhooks
       msgId = headers["webhook-id"]
       msgSignature = headers["webhook-signature"]
       msgTimestamp = headers["webhook-timestamp"]
+
       if !msgSignature || !msgId || !msgTimestamp
         raise WebhookVerificationError, "Missing required headers"
       end
@@ -33,15 +34,19 @@ module StandardWebhooks
       _, signature = sign(msgId, msgTimestamp, payload).split(",", 2)
 
       passedSignatures = msgSignature.split(" ")
+
       passedSignatures.each do |versionedSignature|
         version, expectedSignature = versionedSignature.split(",", 2)
+
         if version != "v1"
           next
         end
+
         if ::StandardWebhooks::secure_compare(signature, expectedSignature)
           return JSON.parse(payload, symbolize_names: true)
         end
       end
+
       raise WebhookVerificationError, "No matching signature found"
     end
 
@@ -51,12 +56,15 @@ module StandardWebhooks
       rescue
         raise WebhookSigningError, "Invalid timestamp"
       end
+
       toSign = "#{msgId}.#{timestamp}.#{payload}"
       signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, toSign)).strip
+
       return "v1,#{signature}"
     end
 
     private
+
     SECRET_PREFIX = "whsec_"
     TOLERANCE = 5 * 60
 
@@ -71,6 +79,7 @@ module StandardWebhooks
       if timestamp < (now - TOLERANCE)
         raise WebhookVerificationError, "Message timestamp too old"
       end
+
       if timestamp > (now + TOLERANCE)
         raise WebhookVerificationError, "Message timestamp too new"
       end
