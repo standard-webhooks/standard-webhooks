@@ -28,10 +28,8 @@ Gem::Specification.new do |spec|
     /\A.gitignore/,
     /.gem\z/
   )
-  spec.files = Dir['**/*'].reject {|f| !File.file?(f) || ignored.match(f) }
 
-  spec.bindir        = "exe"
-  spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
+  spec.files = Dir['**/*'].reject {|f| !File.file?(f) || ignored.match(f) }
   spec.require_paths = ["lib"]
 
   spec.add_development_dependency "bundler", ">= 2.2.10"
