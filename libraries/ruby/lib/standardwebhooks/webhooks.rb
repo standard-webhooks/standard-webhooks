@@ -21,28 +21,28 @@ module StandardWebhooks
     end
 
     def verify(payload, headers)
-      msgId = headers["webhook-id"]
-      msgSignature = headers["webhook-signature"]
-      msgTimestamp = headers["webhook-timestamp"]
+      msg_id = headers["webhook-id"]
+      msg_signature = headers["webhook-signature"]
+      msg_timestamp = headers["webhook-timestamp"]
 
-      if !msgSignature || !msgId || !msgTimestamp
+      if !msg_signature || !msg_id || !msg_timestamp
         raise WebhookVerificationError, "Missing required headers"
       end
 
-      verify_timestamp(msgTimestamp)
+      verify_timestamp(msg_timestamp)
 
-      _, signature = sign(msgId, msgTimestamp, payload).split(",", 2)
+      _, signature = sign(msg_id, msg_timestamp, payload).split(",", 2)
 
-      passedSignatures = msgSignature.split(" ")
+      passed_signatures = msg_signature.split(" ")
 
-      passedSignatures.each do |versionedSignature|
-        version, expectedSignature = versionedSignature.split(",", 2)
+      passed_signatures.each do |versioned_signature|
+        version, expected_signature = versioned_signature.split(",", 2)
 
         if version != "v1"
           next
         end
 
-        if ::StandardWebhooks::secure_compare(signature, expectedSignature)
+        if ::StandardWebhooks::secure_compare(signature, expected_signature)
           return JSON.parse(payload, symbolize_names: true)
         end
       end
@@ -50,15 +50,15 @@ module StandardWebhooks
       raise WebhookVerificationError, "No matching signature found"
     end
 
-    def sign(msgId, timestamp, payload)
+    def sign(msg_id, timestamp, payload)
       begin
         now = Integer(timestamp)
       rescue
         raise WebhookSigningError, "Invalid timestamp"
       end
 
-      toSign = "#{msgId}.#{timestamp}.#{payload}"
-      signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, toSign)).strip
+      to_sign = "#{msg_id}.#{timestamp}.#{payload}"
+      signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, to_sign)).strip
 
       return "v1,#{signature}"
     end
@@ -68,10 +68,10 @@ module StandardWebhooks
     SECRET_PREFIX = "whsec_"
     TOLERANCE = 5 * 60
 
-    def verify_timestamp(timestampHeader)
+    def verify_timestamp(timestamp_header)
       begin
         now = Integer(Time.now)
-        timestamp = Integer(timestampHeader)
+        timestamp = Integer(timestamp_header)
       rescue
         raise WebhookVerificationError, "Invalid Signature Headers"
       end
