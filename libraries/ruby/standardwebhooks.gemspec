@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
   spec.name          = "standardwebhooks"
-  spec.version       = "1.3.0"
+  spec.version       = "1.0.0"
   spec.authors       = ["Standard Webhooks"]
   spec.license       = "MIT"
 
@@ -28,10 +28,8 @@ Gem::Specification.new do |spec|
     /\A.gitignore/,
     /.gem\z/
   )
-  spec.files = Dir['**/*'].reject {|f| !File.file?(f) || ignored.match(f) }
 
-  spec.bindir        = "exe"
-  spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
+  spec.files = Dir['**/*'].reject {|f| !File.file?(f) || ignored.match(f) }
   spec.require_paths = ["lib"]
 
   spec.add_development_dependency "bundler", ">= 2.2.10"

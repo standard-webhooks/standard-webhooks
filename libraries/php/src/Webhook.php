@@ -18,7 +18,7 @@ class Webhook
 
     public static function fromRaw($secret)
     {
-        $obj = new self();
+        $obj = new self('');
         $obj->secret = $secret;
         return $obj;
     }
@@ -63,7 +63,7 @@ class Webhook
     public function sign($msgId, $timestamp, $payload)
     {
         $timestamp = (string) $timestamp;
-        $is_positive_integer = ctype_digit($timestamp);
+        $is_positive_integer = self::isPositiveInteger($timestamp);
         if (!$is_positive_integer) {
             throw new Exception\WebhookSigningException("Invalid timestamp");
         }
@@ -89,5 +89,10 @@ class Webhook
             throw new Exception\WebhookVerificationException("Message timestamp too new");
         }
         return $timestamp;
+    }
+
+    private function isPositiveInteger($v)
+    {
+        return is_numeric($v) && !is_float($v + 0) && (int) $v == $v && (int) $v > 0;
     }
 }

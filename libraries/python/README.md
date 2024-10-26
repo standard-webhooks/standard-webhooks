@@ -12,8 +12,12 @@ To debug or simulate webhooks messages check [webhooks tools](https://www.standa
 Verifying a webhook payload:
 
 ```python
+import os
+
 from standardwebhooks import Webhook
-from app.config import WEBHOOK_SECRET_B64
+
+
+WEBHOOK_SECRET_B64 = os.getenv('WEBHOOK_SECRET_B64')
 
 wh = Webhook(WEBHOOK_SECRET_B64)
 

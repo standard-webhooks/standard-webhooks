@@ -23,4 +23,4 @@ jobs:
 
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
-          arguments: --manifest-path=libraries/rust/Cargo.toml
+          manifest-path: libraries/rust/Cargo.toml

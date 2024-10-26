@@ -1,6 +1,6 @@
 [package]
 name = "standardwebhooks"
-version = "1.3.0"
+version = "1.0.1"
 authors = ["Standard Webhooks"]
 edition = "2021"
 description="Rust library for creating and verifying webhook signatures."
@@ -13,7 +13,7 @@ categories = ["development-tools", "asynchronous", "network-programming", "web-p
 
 [dependencies]
 hmac-sha256 = "1"
-base64 = "0.21.3"
+base64 = "0.22.1"
 time = "0.3"
 thiserror = ">1.0.30"
 http = "1.0"

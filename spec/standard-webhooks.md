@@ -14,19 +14,19 @@ License: The Apache License, Version 2.0.
 
 Webhooks are becoming increasingly popular and are used by many of the world's top companies for sending events to users of their APIs. However, the ecosystem is fragmented, with each webhook provider using different implementations and varying quality. Even high quality implementations vary, making them inherently incompatible. This fragmentation is a pain for the providers and consumers, stifling innovation.
 
-For consumers, this means handling webhooks differently for every provider, relearning how to verify webhooks, and encountering gotchas with bespoke implementations. For providers, this means reinventing the wheel, redesigning for issues that have already been solved (security, forward compatibility, etc.). 
+For consumers, this means handling webhooks differently for every provider, relearning how to verify webhooks, and encountering gotchas with bespoke implementations. For providers, this means reinventing the wheel, redesigning for issues that have already been solved (security, forward compatibility, etc.).
 
 We propose a simple solution: standardize webhooks across the industry. This design document outlines our proposal, a set of strict webhook guidelines based on the existing industry best practices. We call it "Standard Webhooks".
 
 We believe "Standard Webhooks" can do for webhooks what JWT did for API authentication. Adopting a common protocol that is consistent and supported by different implementations will solve the above issues, and will enable new tools and innovations in webhook ecosystem.
 
-To achieve this, we have created an open source and community-driven set of tools and guidelines for sending webhooks. 
+To achieve this, we have created an open source and community-driven set of tools and guidelines for sending webhooks.
 
 ## What are Webhooks?
 
 Webhooks are a common name for HTTP callbacks, and are a way for services to notify each other of events. Webhooks are part of a service's API, though you can think of them as a sort of a "reverse API". When a client wants to make a request to a service they make an API call, and when the service wants to notify the client of an event the service triggers a webhook ("a user has paid", "task has finished", etc.).
 
-Webhooks are server-to-server, in the sense that both the customer and the service in the above description, should be operating HTTP servers, one to receive the API calls and one to receive the webhooks.It's important to note that while webhooks usually co-exist with a traditional API, this is not a requirement, and some services send webhooks without offering a traditional API.
+Webhooks are server-to-server, in the sense that both the customer and the service in the above description, should be operating HTTP servers, one to receive the API calls and one to receive the webhooks. It's important to note that while webhooks usually co-exist with a traditional API, this is not a requirement, and some services send webhooks without offering a traditional API.
 
 ## Design Goals
 
@@ -76,7 +76,7 @@ Example payload:
 
 There are two main approaches to webhook payloads: "thin" and "full" payloads. Full payloads consist of the full information about the event, the status of the related entities, and everything that's changed. A thin payload will only include identifiers to the affected entities, and potentially information about the change itself.
 
-Let's consider a fictional address book management service. It's a simple service where you can update and maintain your address book, and it sends webhooks every time data changes. 
+Let's consider a fictional address book management service. It's a simple service where you can update and maintain your address book, and it sends webhooks every time data changes.
 
 Now, let's assume we just created a new contact, here are the payloads that will be sent:
 
@@ -138,9 +138,9 @@ The unique identifier is a unique identifier associated with a specific event tr
 
 #### Signature scheme
 
-As mentioned above, it's important to sign both the body of the webhook, and the associated metadata. To achieve this, the metadata and the body are concatenated (delimited by full-stops) and then signed.
+As mentioned above, it's important to sign both the body of the webhook and the associated metadata. To achieve this, the message's: ID, timestamp and body are concatenated (delimited by full-stops) and then signed.
 
-The content to be signed is therefore: `{msg_id}.{timestamp}.{payload}`.
+The content to be signed is therefore: `msg_id.timestamp.payload`.
 
 For example:
 
@@ -182,7 +182,7 @@ Comparison:
   - Fast. HMAC-SHA256 is fast and often hardware accelerated, and much faster than any asymmetric scheme.
   - Simple. Symmetric signatures are much more simple and quick to get started with than asymmetric ones.
   - Ubiquitous: HMAC-SHA256 is widely available on every platform and language.
-  - Warning: Treat the signing key as any other cryptographic secret. If you do not control the security of both the producer and consumer it is recommended you use an asymmetric signature instead.
+  - Warning: Treat the signing key as any other cryptographic secret. If you do not control the security of both the producer and consumer, it is recommended you use an asymmetric signature instead.
 
 - Asymmetric:
   - Provides an additional layer of security as only the producer needs access to the private key.
@@ -287,7 +287,7 @@ Additionally, some responses may also include a `retry-after` header (e.g. `503 
 
 #### Request timeouts
 
-In order to ensure the reliable delivery of webhooks it's important to ensure consumers have enough time to process and acknowledge the processing of requests. A recommended request timeout value for webhooks is somewhere between 15 and 30s.
+In order to ensure the reliable delivery of webhooks, it's important to ensure consumers have enough time to process and acknowledge the processing of requests. A recommended request timeout value for webhooks is somewhere between 15 and 30s.
 
 #### Enforcing HTTPS
 
@@ -299,11 +299,14 @@ Some webhook consumers have firewalls (or other security mechanisms) in front of
 
 #### Server side request forgery (SSRF)
 
-A server-side request forgery (SSRF) attack is when an attacker abuses functionality on the server to read or update internal resources. In the attack, the attacker supplies or modifies a URL which the server will then make a call to. By carefully selecting the URLs, the attacker may be able to read server configuration such as AWS metadata, connect to internal services like http enabled databases or perform post requests towards internal services which are not intended to be exposed.
+A server-side request forgery (SSRF) attack is when an attacker abuses functionality on the server to read or update internal resources. In the attack, the attacker supplies or modifies a URL which the server will then make a call to. By carefully selecting the URLs, the attacker may be able to read server configuration such as AWS metadata, connect to internal services like HTTP-enabled databases or perform post requests towards internal services which are not intended to be exposed.
 
 Webhooks implementations are especially vulnerable to SSRF as they let their consumers (customers) add any URLs they want, which will be called from the internal webhook system.
 
 The main way to protect against SSRF is to prevent the webhooks from calling into internal networks and services. To achieve this you'd want to do two things: the first would be to proxy all webhook requests through a special proxy (like[  smokescreen](https://github.com/stripe/smokescreen)) that filters internal IP addresses, and the second would be to put the webhook workers (or proxy) in their own private subnet that can't access internal services.
+
+#### Additional References
+ - [OWASP API Top 10, API7:2023 Server Side Request Forgery](https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/)
 
 ### Additional functionality
 

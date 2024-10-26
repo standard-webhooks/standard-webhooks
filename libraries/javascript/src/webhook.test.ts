@@ -103,6 +103,26 @@ test("invalid signature throws error", () => {
   }).toThrowError(WebhookVerificationError);
 });
 
+test("partial signature throws error", () => {
+  const wh = new Webhook("MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  const testPayload = new TestPayload();
+  testPayload.header["webhook-signature"] = testPayload.header["webhook-signature"].slice(
+    0,
+    8
+  );
+
+  expect(() => {
+    wh.verify(testPayload.payload, testPayload.header);
+  }).toThrowError(WebhookVerificationError);
+
+  testPayload.header["webhook-signature"] = "v1,";
+
+  expect(() => {
+    wh.verify(testPayload.payload, testPayload.header);
+  }).toThrowError(WebhookVerificationError);
+});
+
 test("valid signature is valid and returns valid json", () => {
   const wh = new Webhook("MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
 
