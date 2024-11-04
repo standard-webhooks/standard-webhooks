@@ -2,8 +2,8 @@ from .config import WEBHOOK_SECRET_ENCODING
 from .config import WEBHOOK_SECRET_PREFIX
 from .config import WEBHOOK_TOLERANCE_SECONDS
 from .config import WEBHOOK_VERSION
+from .exceptions import WebhookVerificationError
 from .webhooks import Webhook
-from .webhooks import WebhookVerificationError
 
 __all__ = [
     "WEBHOOK_SECRET_ENCODING",
