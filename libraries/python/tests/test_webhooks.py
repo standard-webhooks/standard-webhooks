@@ -1,42 +1,14 @@
-import base64
-import typing as t
-from datetime import datetime, timedelta, timezone
-from math import floor
-
 import pytest
 
-from standardwebhooks.webhooks import Webhook, WebhookVerificationError, hmac_data
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 
-DEFAULT_MSG_ID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
-DEFAULT_PAYLOAD = '{"test": 2432232314}'
-DEFAULT_SECRET = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+from standardwebhooks import WEBHOOK_TOLERANCE_SECONDS
+from standardwebhooks import WebhookVerificationError
+from standardwebhooks import Webhook
 
-TOLERANCE = timedelta(minutes=5)
-
-
-class PayloadForTesting:
-    id: str
-    timestamp: str
-    payload: str
-    secret: str
-    signature: str
-    header: t.Dict[str, str]
-
-    def __init__(self, timestamp: datetime = datetime.now(tz=timezone.utc)):
-        ts = str(floor(timestamp.timestamp()))
-        to_sign = f"{DEFAULT_MSG_ID}.{ts}.{DEFAULT_PAYLOAD}".encode()
-        signature = base64.b64encode(hmac_data(base64.b64decode(DEFAULT_SECRET), to_sign)).decode("utf-8")
-
-        self.id = DEFAULT_MSG_ID
-        self.timestamp = ts
-        self.payload = DEFAULT_PAYLOAD
-        self.secret = DEFAULT_SECRET
-        self.signature = signature
-        self.header = {
-            "webhook-id": DEFAULT_MSG_ID,
-            "webhook-signature": "v1," + signature,
-            "webhook-timestamp": self.timestamp,
-        }
+from .fixtures import PayloadForTesting
 
 
 def test_missing_id_raises_error() -> None:
@@ -89,16 +61,16 @@ def test_invalid_signature_raises_error() -> None:
         wh.verify(test_payload.payload, test_payload.header)
 
 
-def test_valid_signature_is_valid_and_returns_json() -> None:
+def test_valid_signature_is_valid() -> None:
     test_payload = PayloadForTesting()
 
     wh = Webhook(test_payload.secret)
 
-    json = wh.verify(test_payload.payload, test_payload.header)
-    assert json["test"] == 2432232314
+    payload = wh.verify(test_payload.payload, test_payload.header)
+    assert "2432232314" in payload
 
 
-def test_valid_unbranded_signature_is_valid_and_returns_json() -> None:
+def test_valid_unbranded_signature_is_valid() -> None:
     test_payload = PayloadForTesting()
 
     unbranded_headers = {
@@ -110,12 +82,13 @@ def test_valid_unbranded_signature_is_valid_and_returns_json() -> None:
 
     wh = Webhook(test_payload.secret)
 
-    json = wh.verify(test_payload.payload, test_payload.header)
-    assert json["test"] == 2432232314
+    payload = wh.verify(test_payload.payload, test_payload.header)
+    assert "2432232314" in payload
 
 
 def test_old_timestamp_fails() -> None:
-    test_payload = PayloadForTesting(datetime.now(tz=timezone.utc) - TOLERANCE - timedelta(seconds=1))
+    old_timestamp = datetime.now(tz=timezone.utc) - timedelta(seconds=WEBHOOK_TOLERANCE_SECONDS + 1)
+    test_payload = PayloadForTesting(old_timestamp)
 
     wh = Webhook(test_payload.secret)
 
@@ -124,7 +97,8 @@ def test_old_timestamp_fails() -> None:
 
 
 def test_new_timestamp_fails() -> None:
-    test_payload = PayloadForTesting(datetime.now(tz=timezone.utc) + TOLERANCE + timedelta(seconds=1))
+    new_timestamp = datetime.now(tz=timezone.utc) + timedelta(seconds=WEBHOOK_TOLERANCE_SECONDS + 1)
+    test_payload = PayloadForTesting(new_timestamp)
 
     wh = Webhook(test_payload.secret)
 
@@ -144,30 +118,31 @@ def test_multi_sig_payload_is_valid() -> None:
 
     wh = Webhook(test_payload.secret)
 
-    json = wh.verify(test_payload.payload, test_payload.header)
-    assert json["test"] == 2432232314
+    payload = wh.verify(test_payload.payload, test_payload.header)
+    assert "2432232314" in payload
 
 
 def test_signature_verification_with_and_without_prefix() -> None:
     test_payload = PayloadForTesting()
 
     wh = Webhook(test_payload.secret)
-    json = wh.verify(test_payload.payload, test_payload.header)
-    assert json["test"] == 2432232314
+
+    payload = wh.verify(test_payload.payload, test_payload.header)
+    assert "2432232314" in payload
 
     wh = Webhook("whsec_" + test_payload.secret)
 
-    json = wh.verify(test_payload.payload, test_payload.header)
-    assert json["test"] == 2432232314
+    payload = wh.verify(test_payload.payload, test_payload.header)
+    assert "2432232314" in payload
 
 
 def test_sign_function() -> None:
+    expected = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
     key = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
     msg_id = "msg_p5jXN8AQM9LWM0D4loKWxJek"
-    timestamp = datetime.utcfromtimestamp(1614265330)
     payload = '{"test": 2432232314}'
-    expected = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
+    timestamp = datetime.utcfromtimestamp(1614265330)
 
     wh = Webhook(key)
-    signature = wh.sign(msg_id=msg_id, timestamp=timestamp, data=payload)
+    signature = wh.sign(msg_id=msg_id, timestamp=timestamp, payload=payload)
     assert signature == expected
