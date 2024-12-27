@@ -9,40 +9,36 @@ jobs:
   build:
     name: Java Release
     runs-on: ubuntu-latest
+    environment: Release
+    env:
+      GPG_PASSPHRASE: ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Java
+      # Setup Java
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
-          java-version: "11"
+          distribution: 'temurin'
+          java-version: '11'
+          server-id: 'central'
+          server-username: NEXUS_USERNAME
+          server-password: NEXUS_PASSWORD
 
-      - name: Restore gradle.properties
+      # Import GPG key
+      - name: Import GPG key
         run: |
-          mkdir -p ~/.gradle/
-          echo "GRADLE_USER_HOME=${HOME}/.gradle" >> "$GITHUB_ENV"
+          echo "${{ secrets.OSSRH_GPG_SECRET_KEY }}" > private.key
+          gpg --batch --import private.key
+          # Trust the key to avoid interactive "are you sure?" prompts
+          echo "5" | gpg --command-fd 0 --batch --yes --edit-key ${{ secrets.OSSRH_GPG_KEY_NAME }} trust
+        shell: bash
 
-          {
-            echo "NEXUS_USERNAME=$NEXUS_USERNAME"
-            echo "NEXUS_PASSWORD=$NEXUS_PASSWORD"
-            echo "signing.gnupg.keyName=$OSSRH_GPG_KEY_NAME"
-            echo "signing.gnupg.passphrase=$OSSRH_GPG_SECRET_KEY_PASSWORD"
-          } >> ~/.gradle/gradle.properties
-        env:
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-          OSSRH_GPG_KEY_NAME: ${{ secrets.OSSRH_GPG_KEY_NAME }}
-          OSSRH_GPG_SECRET_KEY_PASSWORD: ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}
-
-      - name: Install GPG Signing Key
+      - name: Build & Deploy
         run: |
-          echo -e "$OSSRH_GPG_SECRET_KEY" | gpg --batch --import
-        env:
-          OSSRH_GPG_SECRET_KEY: ${{ secrets.OSSRH_GPG_SECRET_KEY }}
-
-      - name: Publish
-        run: |
-          ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository
+          # Maven deploy - this will sign, upload to staging, and (if configured) release automatically
+          mvn clean deploy -P release-sign-artifacts
         working-directory: libraries/java
