@@ -59,13 +59,25 @@ impl Webhook {
         Ok(Webhook { key: secret })
     }
 
+    /// Verify the webhook signature against payload and headers
     pub fn verify(&self, payload: &[u8], headers: &HeaderMap) -> Result<(), WebhookError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        self.verify_with_timestamp(payload, headers, now)
+    }
+
+    /// Similar to [Self::verify] but uses a timestamp passed as a parameter instead of `now()`
+    pub fn verify_with_timestamp(
+        &self,
+        payload: &[u8],
+        headers: &HeaderMap,
+        now: i64,
+    ) -> Result<(), WebhookError> {
         let msg_id = Self::get_header(headers, HEADER_WEBHOOK_ID, "id")?;
         let msg_signature = Self::get_header(headers, HEADER_WEBHOOK_SIGNATURE, "signature")?;
         let msg_ts = Self::get_header(headers, HEADER_WEBHOOK_TIMESTAMP, "timestamp")
             .and_then(Self::parse_timestamp)?;
 
-        Self::verify_timestamp(msg_ts)?;
+        Self::verify_timestamp(msg_ts, now)?;
 
         let versioned_signature = self.sign(msg_id, msg_ts, payload)?;
         let expected_signature = versioned_signature
@@ -120,8 +132,7 @@ impl Webhook {
         str::parse::<i64>(hdr).map_err(|_| WebhookError::InvalidTimestamp)
     }
 
-    fn verify_timestamp(ts: i64) -> Result<(), WebhookError> {
-        let now = OffsetDateTime::now_utc().unix_timestamp();
+    fn verify_timestamp(ts: i64, now: i64) -> Result<(), WebhookError> {
         if now - ts > TOLERANCE_IN_SECONDS {
             Err(WebhookError::TimestampTooOldError)
         } else if ts > now + TOLERANCE_IN_SECONDS {
