@@ -202,7 +202,7 @@ The "signature identifier" is the version identifier prefixed to signatures when
 
 #### Webhook headers (sending metadata to consumers)
 
-As discussed above, the webhook payload should be sent as the body of an HTTP POST request, which means that additional webhook data should be sent as part of the headers.
+As discussed above, the webhook payload should be sent as the body of an HTTP PUT request, which means that additional webhook data should be sent as part of the headers.
 
 All of the headers should be prefixed with `webhook-` and follow the exact naming as below.
 
