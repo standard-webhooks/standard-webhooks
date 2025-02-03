@@ -1,5 +1,2 @@
-from .webhooks import WebhookVerificationError
-
-__all__ = [
-    "WebhookVerificationError",
-]
+class WebhookVerificationError(Exception):
+    pass
