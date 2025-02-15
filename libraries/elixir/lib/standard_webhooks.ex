@@ -124,7 +124,7 @@ defmodule StandardWebhooks do
   end
 
   defp sign_and_encode(to_sign, secret) do
-    :crypto.mac(:hmac, :sha256, secret, to_sign)
+    :crypto.mac(:hmac, :sha256, Base.decode64!(secret), to_sign)
     |> Base.encode64()
     |> String.trim()
   end
