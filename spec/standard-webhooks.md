@@ -55,7 +55,7 @@ While this specification does not dictate the structure, or impose any requireme
 - It's recommended to provide examples of the payload structure for each of the event types, as well as a formal specification of the structure (such as JSON Schema or OpenAPI).
 - Payload structure:
   - `type`: a full-stop delimited type associated with the event. The type indicates the type of the event being sent (e.g "user.created" or "invoice.paid"), indicates the schema of the payload (passed in data), and it should be grouped hierarchically.
-  - `timestamp`: the timestamp of when the event occurred (not necessarily the same of when it was delivered).
+  - `timestamp`: the timestamp of when the event occurred (not necessarily the same of when it was delivered), it should be [ISO 8601 formatted](https://en.wikipedia.org/wiki/ISO_8601) 
   - `data`: the actual event data associated with the event. It can either be passed as part of the data property, or squashed as part of the top-level object.
   - Additional metadata can be added both as top-level properties or as part of data, depending on personal preference.
 
