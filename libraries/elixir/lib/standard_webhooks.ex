@@ -124,7 +124,13 @@ defmodule StandardWebhooks do
   end
 
   defp sign_and_encode(to_sign, secret) do
-    :crypto.mac(:hmac, :sha256, secret, to_sign)
+    secret =
+      case String.split(secret, @secret_prefix) do
+        ["", secret] -> secret
+        [secret] when is_binary(secret) -> secret
+      end
+
+    :crypto.mac(:hmac, :sha256, Base.decode64!(secret), to_sign)
     |> Base.encode64()
     |> String.trim()
   end
