@@ -43,6 +43,11 @@ There are reference implementations for the signature verification theme for a v
 - [C#](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/csharp)
 - [Elixir](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/elixir)
 
+## Community implementations
+
+- [Java](https://github.com/Cosium/standard-webhooks-consumer)
+- [C# (.NET)](https://github.com/codefactors/StandardWebhooks)
+
 
 ## Technical steering committee
 
