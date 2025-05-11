@@ -77,7 +77,7 @@ class Webhook
     {
         $now = time();
         try {
-            $timestamp = (int) $timestampHeader;
+            $timestamp = intval($timestampHeader, 10);
         } catch (\Exception $e) {
             throw new Exception\WebhookVerificationException("Invalid Signature Headers");
         }
