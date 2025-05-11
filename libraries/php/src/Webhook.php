@@ -38,7 +38,7 @@ class Webhook
         }
 
 
-        $timestamp = self::verifyTimestamp($msgTimestamp);
+        $timestamp = $this->verifyTimestamp($msgTimestamp);
 
         $signature = $this->sign($msgId, $timestamp, $payload);
         $expectedSignature = explode(',', $signature, 2)[1];
@@ -63,7 +63,7 @@ class Webhook
     public function sign($msgId, $timestamp, $payload)
     {
         $timestamp = (string) $timestamp;
-        $is_positive_integer = self::isPositiveInteger($timestamp);
+        $is_positive_integer = $this->isPositiveInteger($timestamp);
         if (!$is_positive_integer) {
             throw new Exception\WebhookSigningException("Invalid timestamp");
         }
@@ -77,7 +77,7 @@ class Webhook
     {
         $now = time();
         try {
-            $timestamp = intval($timestampHeader, 10);
+            $timestamp = (int) $timestampHeader;
         } catch (\Exception $e) {
             throw new Exception\WebhookVerificationException("Invalid Signature Headers");
         }
