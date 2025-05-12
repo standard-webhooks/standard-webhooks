@@ -83,5 +83,4 @@ There are a few complementary or partially overlapping efforts to standardize as
 - [AsyncAPI](https://www.asyncapi.com/)
 - [CloudEvents](https://cloudevents.io/)
 - [IETF HTTP Message Signatures](https://httpwg.org/http-extensions/draft-ietf-httpbis-message-signatures.html)
-- [REST Hooks](http://resthooks.org/)
 - [Webhooks.fyi](https://webhooks.fyi/) - a collection of useful webhooks resources (not a standardization effort).
