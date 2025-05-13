@@ -19,12 +19,7 @@ jobs:
         with:
           dotnet-version: 5.0.x
 
-      - name: Install dependencies
-        run: |
-          dotnet restore
-        working-directory: libraries/csharp
-
       - name: Build
         run: |
-          dotnet build --configuration Release StandardWebhooks --no-restore
+          dotnet build --configuration Release StandardWebhooks
         working-directory: libraries/csharp
