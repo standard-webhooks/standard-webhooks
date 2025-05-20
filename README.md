@@ -79,8 +79,14 @@ We believe "Standard Webhooks" can do to webhooks what JWT did to API authentica
 
 There are a few complementary or partially overlapping efforts to standardize asynchronous event communication. This specification is compatible with the rest of them, and can either reuse existing efforts or benefit further from collaboration with them. The most notable of such efforts are:
 
+### Active Projects
+
 - [OpenAPI](https://www.openapis.org/)
 - [AsyncAPI](https://www.asyncapi.com/)
 - [CloudEvents](https://cloudevents.io/)
 - [IETF HTTP Message Signatures](https://httpwg.org/http-extensions/draft-ietf-httpbis-message-signatures.html)
 - [Webhooks.fyi](https://webhooks.fyi/) - a collection of useful webhooks resources (not a standardization effort).
+
+### In-active Projects 
+
+- [RestHooks](https://github.com/zapier/resthooks)
