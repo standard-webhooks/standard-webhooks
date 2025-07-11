@@ -47,6 +47,7 @@ There are reference implementations for the signature verification theme for a v
 
 - [Java](https://github.com/Cosium/standard-webhooks-consumer)
 - [C# (.NET)](https://github.com/codefactors/StandardWebhooks)
+- [Swift](https://github.com/m1guelpf/swift-standard-webhooks)
 
 
 ## Technical steering committee
