@@ -6,9 +6,10 @@
 
 use base64::Engine;
 use http::HeaderMap;
+use std::fmt::{self, Debug};
 use time::OffsetDateTime;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum WebhookError {
     #[error("failed to parse timestamp")]
     InvalidTimestamp,
@@ -35,8 +36,15 @@ pub enum WebhookError {
     InvalidPayload,
 }
 
+#[derive(Clone, PartialEq, Eq)]
 pub struct Webhook {
     key: Vec<u8>,
+}
+
+impl Debug for Webhook {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Webhook { key: [REDACTED] }")
+    }
 }
 
 pub const HEADER_WEBHOOK_ID: &str = "webhook-id";
