@@ -32,7 +32,7 @@ func newTestPayload(timestamp time.Time) *testPayload {
 	tp.payload = defaultPayload
 	tp.secret = defaultSecret
 
-	wh, _ := standardwebhooks.NewWebhook(tp.secret)
+	wh, _ := standardwebhooks.NewWebhookSymmetric(tp.secret)
 	tp.signature, _ = wh.Sign(tp.id, tp.timestamp, tp.payload)
 
 	tp.header = http.Header{}
@@ -89,14 +89,14 @@ func TestWebhook(t *testing.T) {
 			},
 			expectedErr: true,
 		},
-        {
-            name:        "partial signature is invalid",
-            testPayload: newTestPayload(time.Now()),
-            modifyPayload: func(tp *testPayload) {
-                tp.header.Set("webhook-signature", "v1,")
-            },
-            expectedErr: true,
-        },
+		{
+			name:        "partial signature is invalid",
+			testPayload: newTestPayload(time.Now()),
+			modifyPayload: func(tp *testPayload) {
+				tp.header.Set("webhook-signature", "v1,")
+			},
+			expectedErr: true,
+		},
 		{
 			name:        "old timestamp fails",
 			testPayload: newTestPayload(time.Now().Add(tolerance * -1)),
@@ -155,7 +155,7 @@ func TestWebhook(t *testing.T) {
 			tc.modifyPayload(tc.testPayload)
 		}
 
-		wh, err := standardwebhooks.NewWebhook(tc.testPayload.secret)
+		wh, err := standardwebhooks.NewWebhookSymmetric(tc.testPayload.secret)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -176,7 +176,7 @@ func TestWebhook(t *testing.T) {
 func TestWebhookPrefix(t *testing.T) {
 	tp := newTestPayload(time.Now())
 
-	wh, err := standardwebhooks.NewWebhook(tp.secret)
+	wh, err := standardwebhooks.NewWebhookSymmetric(tp.secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestWebhookPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wh, err = standardwebhooks.NewWebhook(fmt.Sprintf("whsec_%s", tp.secret))
+	wh, err = standardwebhooks.NewWebhookSymmetric(fmt.Sprintf("whsec_%s", tp.secret))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestWebhookSign(t *testing.T) {
 	payload := []byte(`{"test": 2432232314}`)
 	expected := "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
 
-	wh, err := standardwebhooks.NewWebhook(key)
+	wh, err := standardwebhooks.NewWebhookSymmetric(key)
 	if err != nil {
 		t.Fatal(err)
 	}
