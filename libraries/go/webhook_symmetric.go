@@ -16,7 +16,7 @@ type webhookSymmetric struct {
 }
 
 func NewWebhookSymmetric(secret string) (Webhook, error) {
-	key, err := base64enc.DecodeString(strings.TrimPrefix(secret, webhookSecretPrefix))
+	key, err := base64enc.DecodeString(strings.TrimPrefix(secret, webhookSymmetricSecretPrefix))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create webhook, err: %w", err)
 	}
@@ -53,22 +53,9 @@ func (wh *webhookSymmetric) VerifyIgnoringTimestamp(payload []byte, headers http
 }
 
 func (wh *webhookSymmetric) verify(payload []byte, headers http.Header, enforceTolerance bool) error {
-	msgId := headers.Get(HeaderWebhookID)
-	msgSignature := headers.Get(HeaderWebhookSignature)
-	msgTimestamp := headers.Get(HeaderWebhookTimestamp)
-	if msgId == "" || msgSignature == "" || msgTimestamp == "" {
-		return fmt.Errorf("unable to verify payload, err: %w", ErrRequiredHeaders)
-	}
-
-	timestamp, err := parseTimestampHeader(msgTimestamp)
+	msgId, msgSignature, timestamp, err := checkHeaders(headers, enforceTolerance)
 	if err != nil {
-		return fmt.Errorf("unable to verify payload, err: %w", err)
-	}
-
-	if enforceTolerance {
-		if err := verifyTimestamp(timestamp); err != nil {
-			return fmt.Errorf("unable to verify payload, err: %w", err)
-		}
+		return err
 	}
 
 	_, expectedSignature, err := wh.sign(msgId, timestamp, payload)
@@ -76,36 +63,22 @@ func (wh *webhookSymmetric) verify(payload []byte, headers http.Header, enforceT
 		return fmt.Errorf("unable to verify payload, err: %w", err)
 	}
 
-	passedSignatures := strings.Split(msgSignature, " ")
-	for _, versionedSignature := range passedSignatures {
-		sigParts := strings.Split(versionedSignature, ",")
-		if len(sigParts) < 2 {
-			continue
-		}
-
-		version := sigParts[0]
-
-		if version != "v1" {
-			continue
-		}
-
-		signature := []byte(sigParts[1])
-
-		if hmac.Equal(signature, expectedSignature) {
-			return nil
-		}
+	err = matchSignature(msgSignature, "v1", func(signature []byte) bool {
+		return hmac.Equal(signature, expectedSignature)
+	})
+	if err != nil {
+		return fmt.Errorf("unable to verify payload, err: %w", ErrNoMatchingSignature)
 	}
-
-	return fmt.Errorf("unable to verify payload, err: %w", ErrNoMatchingSignature)
+	return nil
 }
 
 func (wh *webhookSymmetric) Sign(msgId string, timestamp time.Time, payload []byte) (string, error) {
 	version, signature, err := wh.sign(msgId, timestamp, payload)
-	return fmt.Sprintf("%s,%s", version, signature), err
+	return signatureFormat(version, signature), err
 }
 
 func (wh *webhookSymmetric) sign(msgId string, timestamp time.Time, payload []byte) (version string, signature []byte, err error) {
-	toSign := fmt.Sprintf("%s.%d.%s", msgId, timestamp.Unix(), payload)
+	toSign := payloadToSign(msgId, timestamp, payload)
 
 	h := hmac.New(sha256.New, wh.key)
 	h.Write([]byte(toSign))

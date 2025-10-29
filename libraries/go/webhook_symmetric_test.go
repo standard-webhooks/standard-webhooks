@@ -10,10 +10,11 @@ import (
 	standardwebhooks "github.com/standard-webhooks/standard-webhooks/libraries/go"
 )
 
-var defaultMsgID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
+const defaultMsgID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
+const defaultSecret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+const tolerance time.Duration = 5 * time.Minute
+
 var defaultPayload = []byte(`{"test": 2432232314}`)
-var defaultSecret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-var tolerance time.Duration = 5 * time.Minute
 
 type testPayload struct {
 	id        string
@@ -24,7 +25,7 @@ type testPayload struct {
 	signature string
 }
 
-func newTestPayload(timestamp time.Time) *testPayload {
+func newSymmetricTestPayload(timestamp time.Time) *testPayload {
 	tp := &testPayload{}
 	tp.id = defaultMsgID
 	tp.timestamp = timestamp
@@ -43,7 +44,7 @@ func newTestPayload(timestamp time.Time) *testPayload {
 	return tp
 }
 
-func TestWebhook(t *testing.T) {
+func TestSymmetricWebhook(t *testing.T) {
 
 	testCases := []struct {
 		name               string
@@ -54,12 +55,12 @@ func TestWebhook(t *testing.T) {
 	}{
 		{
 			name:        "valid signature is valid",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			expectedErr: false,
 		},
 		{
 			name:        "missing id returns error",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				tp.header.Del("webhook-id")
 			},
@@ -67,7 +68,7 @@ func TestWebhook(t *testing.T) {
 		},
 		{
 			name:        "missing timestamp returns error",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				tp.header.Del("webhook-timestamp")
 			},
@@ -75,7 +76,7 @@ func TestWebhook(t *testing.T) {
 		},
 		{
 			name:        "missing signature returns error",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				tp.header.Del("webhook-signature")
 			},
@@ -83,7 +84,7 @@ func TestWebhook(t *testing.T) {
 		},
 		{
 			name:        "invalid signature is invalid",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				tp.header.Set("webhook-signature", "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=")
 			},
@@ -91,7 +92,7 @@ func TestWebhook(t *testing.T) {
 		},
 		{
 			name:        "partial signature is invalid",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				tp.header.Set("webhook-signature", "v1,")
 			},
@@ -99,17 +100,17 @@ func TestWebhook(t *testing.T) {
 		},
 		{
 			name:        "old timestamp fails",
-			testPayload: newTestPayload(time.Now().Add(tolerance * -1)),
+			testPayload: newSymmetricTestPayload(time.Now().Add(tolerance * -1)),
 			expectedErr: true,
 		},
 		{
 			name:        "new timestamp fails",
-			testPayload: newTestPayload(time.Now().Add(tolerance + time.Second)),
+			testPayload: newSymmetricTestPayload(time.Now().Add(tolerance + time.Second)),
 			expectedErr: true,
 		},
 		{
 			name:        "valid multi sig is valid",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				sigs := []string{
 					"v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=",
@@ -123,25 +124,25 @@ func TestWebhook(t *testing.T) {
 		},
 		{
 			name:               "old timestamp passes when ignoring tolerance",
-			testPayload:        newTestPayload(time.Now().Add(tolerance * -1)),
+			testPayload:        newSymmetricTestPayload(time.Now().Add(tolerance * -1)),
 			noEnforceTimestamp: true,
 			expectedErr:        false,
 		},
 		{
 			name:               "new timestamp passes when ignoring tolerance",
-			testPayload:        newTestPayload(time.Now().Add(tolerance * 1)),
+			testPayload:        newSymmetricTestPayload(time.Now().Add(tolerance * 1)),
 			noEnforceTimestamp: true,
 			expectedErr:        false,
 		},
 		{
 			name:               "valid timestamp passes when ignoring tolerance",
-			testPayload:        newTestPayload(time.Now()),
+			testPayload:        newSymmetricTestPayload(time.Now()),
 			noEnforceTimestamp: true,
 			expectedErr:        false,
 		},
 		{
 			name:        "invalid timestamp fails when ignoring tolerance",
-			testPayload: newTestPayload(time.Now()),
+			testPayload: newSymmetricTestPayload(time.Now()),
 			modifyPayload: func(tp *testPayload) {
 				tp.header.Set("webhook-timestamp", fmt.Sprint(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).Unix()))
 			},
@@ -173,8 +174,8 @@ func TestWebhook(t *testing.T) {
 	}
 }
 
-func TestWebhookPrefix(t *testing.T) {
-	tp := newTestPayload(time.Now())
+func TestSymmetricWebhookPrefix(t *testing.T) {
+	tp := newSymmetricTestPayload(time.Now())
 
 	wh, err := standardwebhooks.NewWebhookSymmetric(tp.secret)
 	if err != nil {
@@ -197,7 +198,7 @@ func TestWebhookPrefix(t *testing.T) {
 	}
 }
 
-func TestWebhookSign(t *testing.T) {
+func TestSymmetricWebhookSign(t *testing.T) {
 	key := "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
 	msgID := "msg_p5jXN8AQM9LWM0D4loKWxJek"
 	timestamp := time.Unix(1614265330, 0)
