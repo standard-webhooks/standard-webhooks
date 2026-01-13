@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.standardwebhooks</groupId>
     <artifactId>standardwebhooks</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
 
@@ -74,9 +74,95 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
+                <executions>
+                    <!-- Compile all Java 8 code (default behavior) -->
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <source>1.8</source>
+                            <target>1.8</target>
+                        </configuration>
+                    </execution>
+                    <!-- Compile Java 11 override to MRJAR location -->
+                    <execution>
+                        <id>java11-compile</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <release>11</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java11</compileSourceRoot>
+                            </compileSourceRoots>
+                            <outputDirectory>${project.build.outputDirectory}/META-INF/versions/11</outputDirectory>
+                            <jdkToolchain>
+                                <version>11</version>
+                            </jdkToolchain>
+                        </configuration>
+                    </execution>
+                    <!-- Compile unit tests for Java 8 -->
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <source>1.8</source>
+                            <target>1.8</target>
+                        </configuration>
+                    </execution>
+                    <!-- Compile Java 8 integration tests -->
+                    <execution>
+                        <id>java8-it-compile</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <source>1.8</source>
+                            <target>1.8</target>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/test/java8</compileSourceRoot>
+                            </compileSourceRoots>
+                            <outputDirectory>${project.build.directory}/test-classes-java8</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <!-- Compile Java 11 integration tests -->
+                    <execution>
+                        <id>java11-it-compile</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <release>11</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/test/java11</compileSourceRoot>
+                            </compileSourceRoots>
+                            <outputDirectory>${project.build.directory}/test-classes-java11</outputDirectory>
+                            <jdkToolchain>
+                                <version>11</version>
+                            </jdkToolchain>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
                 <configuration>
-                <source>11</source> <!-- Adjust to your Java version -->
-                <target>11</target>
+                    <archive>
+                        <manifestEntries>
+                            <Multi-Release>true</Multi-Release>
+                        </manifestEntries>
+                    </archive>
                 </configuration>
             </plugin>
             <plugin>
@@ -89,6 +175,99 @@
                         <goals>
                             <goal>jar</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>toolchain</goal>
+                        </goals>
+                        <configuration>
+                            <toolchains>
+                                <jdk>
+                                    <version>8</version>
+                                </jdk>
+                            </toolchains>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <!-- Exclude integration tests from normal test phase -->
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <!-- Run Java 8 unit tests during normal test phase -->
+                    <execution>
+                        <id>test</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/*IT.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <!-- Run Java 8 integration tests -->
+                    <execution>
+                        <id>integration-test-java8</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <testClassesDirectory>${project.build.directory}/test-classes-java8</testClassesDirectory>
+                            <!-- Exclude main classes directory to force loading from JAR -->
+                            <classesDirectory>${project.build.directory}/nonexistent</classesDirectory>
+                            <additionalClasspathElements>
+                                <additionalClasspathElement>${project.build.directory}/${project.build.finalName}.jar</additionalClasspathElement>
+                                <additionalClasspathElement>${project.build.directory}/test-classes</additionalClasspathElement>
+                            </additionalClasspathElements>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <excludes combine.self="override"/>
+                            <jdkToolchain>
+                                <version>8</version>
+                            </jdkToolchain>
+                        </configuration>
+                    </execution>
+                    <!-- Run Java 11 integration tests -->
+                    <execution>
+                        <id>integration-test-java11</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <testClassesDirectory>${project.build.directory}/test-classes-java11</testClassesDirectory>
+                            <!-- Exclude main classes directory to force loading from JAR -->
+                            <classesDirectory>${project.build.directory}/nonexistent</classesDirectory>
+                            <additionalClasspathElements>
+                                <additionalClasspathElement>${project.build.directory}/${project.build.finalName}.jar</additionalClasspathElement>
+                                <additionalClasspathElement>${project.build.directory}/test-classes</additionalClasspathElement>
+                            </additionalClasspathElements>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <excludes combine.self="override"/>
+                            <jdkToolchain>
+                                <version>11</version>
+                            </jdkToolchain>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
