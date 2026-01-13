@@ -1,14 +1,10 @@
 package com.standardwebhooks;
 
 import java.net.http.HttpHeaders;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.standardwebhooks.exceptions.WebhookVerificationException;
 
 /**
- * Java 11+ Webhook implementation using HttpHeaders.
+ * A class for verifying and generating webhook signatures.
  */
 public final class Webhook extends WebhookBase {
 
@@ -21,7 +17,7 @@ public final class Webhook extends WebhookBase {
 	}
 
 	/**
-	 * Verify webhook signature using HttpHeaders (Java 11+).
+	 * Verify webhook signature using HttpHeaders
 	 *
 	 * @param payload The webhook payload to verify
 	 * @param headers HttpHeaders containing webhook headers

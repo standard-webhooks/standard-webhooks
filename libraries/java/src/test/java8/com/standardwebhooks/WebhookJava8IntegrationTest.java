@@ -16,7 +16,7 @@ import org.junit.runner.Result;
  * 1. Running on Java 8 runtime
  * 2. Base unit tests pass on Java 8 runtime
  */
-public class WebhookJava8IT {
+public class WebhookJava8IntegrationTest {
 
 	@Test
 	public void verifyRunningOnJava8Runtime() {

@@ -20,7 +20,7 @@ import org.junit.runner.Result;
  * 3. Base unit tests pass on Java 11 runtime
  * 4. Both HttpHeaders and Map-based verify APIs work correctly
  */
-public class WebhookJava11IT {
+public class WebhookJava11IntegrationTest {
 
 	@Test
 	public void verifyRunningOnJava11PlusRuntime() {

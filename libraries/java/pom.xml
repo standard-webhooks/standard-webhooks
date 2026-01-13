@@ -204,7 +204,7 @@
                 <configuration>
                     <!-- Exclude integration tests from normal test phase -->
                     <excludes>
-                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -217,7 +217,7 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <exclude>**/*IT.java</exclude>
+                                <exclude>**/*IntegrationTest.java</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -237,7 +237,7 @@
                                 <additionalClasspathElement>${project.build.directory}/test-classes</additionalClasspathElement>
                             </additionalClasspathElements>
                             <includes>
-                                <include>**/*IT.java</include>
+                                <include>**/*IntegrationTest.java</include>
                             </includes>
                             <excludes combine.self="override"/>
                             <jdkToolchain>
@@ -261,7 +261,7 @@
                                 <additionalClasspathElement>${project.build.directory}/test-classes</additionalClasspathElement>
                             </additionalClasspathElements>
                             <includes>
-                                <include>**/*IT.java</include>
+                                <include>**/*IntegrationTest.java</include>
                             </includes>
                             <excludes combine.self="override"/>
                             <jdkToolchain>

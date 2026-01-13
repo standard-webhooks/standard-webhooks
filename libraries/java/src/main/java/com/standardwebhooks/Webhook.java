@@ -1,8 +1,7 @@
 package com.standardwebhooks;
 
 /**
- * Java 8 Webhook implementation.
- * Uses Map-based headers inherited from WebhookBase.
+ *  A class for verifying and generating webhook signatures.
  */
 public final class Webhook extends WebhookBase {
 

@@ -15,7 +15,7 @@ import com.standardwebhooks.exceptions.WebhookSigningException;
 
 /**
  * Base class containing all shared webhook verification logic.
- * This class is used by both Java 8 and Java 11+ implementations.
+ * This class is used by the all java verion implementations.
  * Package-private to prevent extension outside this package.
  */
 abstract class WebhookBase {
