@@ -99,7 +99,7 @@ abstract class WebhookBase {
 		return null;
 	}
 
-	public String sign(final String msgId, final long timestamp, final String payload) throws WebhookSigningException {
+	public final String sign(final String msgId, final long timestamp, final String payload) throws WebhookSigningException {
 		try {
 			String toSign = String.format("%s.%s.%s", msgId, timestamp, payload);
 			Mac sha512Hmac = Mac.getInstance(HMAC_SHA256);
