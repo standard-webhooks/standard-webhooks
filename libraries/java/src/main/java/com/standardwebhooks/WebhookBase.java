@@ -16,8 +16,9 @@ import com.standardwebhooks.exceptions.WebhookSigningException;
 /**
  * Base class containing all shared webhook verification logic.
  * This class is used by both Java 8 and Java 11+ implementations.
+ * Package-private to prevent extension outside this package.
  */
-public abstract class WebhookBase {
+abstract class WebhookBase {
 	public static final String SECRET_PREFIX = "whsec_";
 	public static final String UNBRANDED_MSG_ID_KEY = "webhook-id";
 	public static final String UNBRANDED_MSG_SIGNATURE_KEY = "webhook-signature";
@@ -47,7 +48,7 @@ public abstract class WebhookBase {
 	 * @param headers Map of header names to list of values
 	 * @throws WebhookVerificationException if verification fails
 	 */
-	public void verify(final String payload, final Map<String, List<String>> headers) throws WebhookVerificationException {
+	public final void verify(final String payload, final Map<String, List<String>> headers) throws WebhookVerificationException {
 		String msgId = getFirstHeader(headers, UNBRANDED_MSG_ID_KEY);
 		String msgSignature = getFirstHeader(headers, UNBRANDED_MSG_SIGNATURE_KEY);
 		String msgTimestamp = getFirstHeader(headers, UNBRANDED_MSG_TIMESTAMP_KEY);

@@ -29,7 +29,6 @@ public final class Webhook extends WebhookBase {
 	 */
 	public void verify(final String payload, final HttpHeaders headers) throws WebhookVerificationException {
 		// Convert HttpHeaders to Map for base class verify method
-		Map<String, List<String>> headerMap = new HashMap<>(headers.map());
-		verify(payload, headerMap);
+		verify(payload, headers.map());
 	}
 }
