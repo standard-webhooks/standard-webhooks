@@ -19,14 +19,6 @@ PKG_NAME = "standardwebhooks"
 PKG_DIR = os.path.abspath(os.path.dirname(__file__))
 META_PATH = os.path.join(PKG_DIR, PKG_NAME, "__init__.py")
 META_CONTENTS = read_file(META_PATH)
-PKG_REQUIRES = [
-    "httpx >=0.23.0",
-    "attrs >=21.3.0",
-    "python-dateutil",
-    "Deprecated",
-    "types-python-dateutil",
-    "types-Deprecated",
-]
 
 
 def find_meta(meta):
@@ -95,7 +87,6 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     python_requires=">=3.6",
-    install_requires=PKG_REQUIRES,
     zip_safe=False,
     packages=find_packages(exclude=["test", "tests"]),
     package_data={
