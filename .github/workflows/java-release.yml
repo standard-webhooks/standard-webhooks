@@ -23,7 +23,9 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: |
+            8
+            11
           server-id: 'central'
           server-username: NEXUS_USERNAME
           server-password: NEXUS_PASSWORD
