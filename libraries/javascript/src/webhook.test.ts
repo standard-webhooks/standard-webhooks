@@ -39,13 +39,13 @@ class TestPayload {
 test("empty key raises error", () => {
   expect(() => {
     new Webhook("");
-  }).toThrowError(Error);
+  }).toThrow(Error);
   expect(() => {
     new Webhook(undefined as any);
-  }).toThrowError(Error);
+  }).toThrow(Error);
   expect(() => {
     new Webhook(null as any);
-  }).toThrowError(Error);
+  }).toThrow(Error);
 });
 
 test("missing id raises error", () => {
@@ -56,7 +56,7 @@ test("missing id raises error", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("missing timestamp raises error", () => {
@@ -67,7 +67,7 @@ test("missing timestamp raises error", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("invalid timestamp throws error", () => {
@@ -78,7 +78,7 @@ test("invalid timestamp throws error", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("missing signature raises error", () => {
@@ -89,7 +89,7 @@ test("missing signature raises error", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("invalid signature throws error", () => {
@@ -100,7 +100,7 @@ test("invalid signature throws error", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("partial signature throws error", () => {
@@ -114,13 +114,13 @@ test("partial signature throws error", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 
   testPayload.header["webhook-signature"] = "v1,";
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("valid signature is valid and returns valid json", () => {
@@ -152,7 +152,7 @@ test("old timestamp fails", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("new timestamp fails", () => {
@@ -162,7 +162,7 @@ test("new timestamp fails", () => {
 
   expect(() => {
     wh.verify(testPayload.payload, testPayload.header);
-  }).toThrowError(WebhookVerificationError);
+  }).toThrow(WebhookVerificationError);
 });
 
 test("multi sig payload is valid", () => {
