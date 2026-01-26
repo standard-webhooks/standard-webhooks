@@ -1,6 +1,9 @@
 import { timingSafeEqual } from "./timing_safe_equal";
-import * as base64 from "@stablelib/base64";
-import * as sha256 from "fast-sha256";
+import { fromBase64, toBase64 } from "@exodus/bytes/base64.js";
+import { latin1fromString } from "@exodus/bytes/single-byte.js";
+import { utf8fromString } from "@exodus/bytes/utf8.js";
+import { hmac } from "@noble/hashes/hmac.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 const WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60; // 5 minutes
 
@@ -43,7 +46,7 @@ export class Webhook {
       if (secret instanceof Uint8Array) {
         this.key = secret;
       } else {
-        this.key = Uint8Array.from(secret, (c) => c.charCodeAt(0));
+        this.key = latin1fromString(secret);
       }
     } else {
       if (typeof secret !== "string") {
@@ -52,7 +55,7 @@ export class Webhook {
       if (secret.startsWith(Webhook.prefix)) {
         secret = secret.substring(Webhook.prefix.length);
       }
-      this.key = base64.decode(secret);
+      this.key = fromBase64(secret);
     }
   }
 
@@ -80,14 +83,13 @@ export class Webhook {
 
     const passedSignatures = msgSignature.split(" ");
 
-    const encoder = new globalThis.TextEncoder();
     for (const versionedSignature of passedSignatures) {
       const [version, signature] = versionedSignature.split(",");
       if (version !== "v1") {
         continue;
       }
 
-      if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
+      if (timingSafeEqual(utf8fromString(signature), utf8fromString(expectedSignature))) {
         return JSON.parse(payload.toString());
       }
     }
@@ -103,10 +105,9 @@ export class Webhook {
       throw new Error("Expected payload to be of type string or Buffer.");
     }
 
-    const encoder = new TextEncoder();
     const timestampNumber = Math.floor(timestamp.getTime() / 1000);
-    const toSign = encoder.encode(`${msgId}.${timestampNumber}.${payload}`);
-    const expectedSignature = base64.encode(sha256.hmac(this.key, toSign));
+    const toSign = utf8fromString(`${msgId}.${timestampNumber}.${payload}`);
+    const expectedSignature = toBase64(hmac(sha256, this.key, toSign));
     return `v1,${expectedSignature}`;
   }
 
