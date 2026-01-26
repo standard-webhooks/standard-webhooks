@@ -466,6 +466,11 @@
   resolved "https://registry.yarnpkg.com/@eslint/object-schema/-/object-schema-2.1.4.tgz#9e69f8bb4031e11df79e03db09f9dbbae1740843"
   integrity sha512-BsWiH1yFGjXXS2yvrf5LyuoSIIbPrGUWob917o+BTKuZ7qJdxX8aJLRxs1fS9n6r7vESrq1OUqb68dANcFXuQQ==
 
+"@exodus/bytes@^1.10.0":
+  version "1.10.0"
+  resolved "https://registry.yarnpkg.com/@exodus/bytes/-/bytes-1.10.0.tgz#5d5f5b90152a65c1a58079e427f9e7a6e951165a"
+  integrity sha512-tf8YdcbirXdPnJ+Nd4UN1EXnz+IP2DI45YVEr3vvzcVTOyrApkmIB4zvOQVd3XPr7RXnfBtAx+PXImXOIU0Ajg==
+
 "@humanwhocodes/module-importer@^1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@humanwhocodes/module-importer/-/module-importer-1.0.1.tgz#af5b2691a22b44be847b0ca81641c5fb6ad0172c"
@@ -724,6 +729,11 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
+"@noble/hashes@^2.0.1":
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-2.0.1.tgz#fc1a928061d1232b0a52bb754393c37a5216c89e"
+  integrity sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==
+
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
   resolved "https://registry.yarnpkg.com/@nodelib/fs.scandir/-/fs.scandir-2.1.5.tgz#7619c2eb21b25483f6d167548b4cfd5a7488c3d5"
@@ -765,14 +775,14 @@
     "@sinonjs/commons" "^3.0.0"
 
 "@stablelib/base64@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@stablelib/base64/-/base64-2.0.0.tgz#f13a98549cd5ca0750cd177bbd08b599d24e5f8e"
-  integrity sha512-ffSfySa1ZpZYzM5FQ2xILQ2jifQ+GlgbDJzRTCtaB0sqta88KYghB/tlSV2VS2iHRCvMdUvJlLOW1rmSkziWnw==
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@stablelib/base64/-/base64-2.0.1.tgz#f1546ab26896b3490d1ab531373c0dc39e12cee1"
+  integrity sha512-P2z89A7N1ETt6RxgpVdDT2xlg8cnm3n6td0lY9gyK7EiWK3wdq388yFX/hLknkCC0we05OZAD1rfxlQJUbl5VQ==
 
 "@stablelib/utf8@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-2.0.0.tgz#05725ef9d39ed10a017e1b6e01374bd998c83167"
-  integrity sha512-bHaUduwFKYgj6rRvA5udyyg+ASx6gJZiQaXvfBHb7A2r+X9tRIKJ/VmpQKFQnEMInpBTh7jJLy+Gt99GH9YZ9g==
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-2.0.1.tgz#3693310a5013cdcf92ed0bd763c8a278db6fee07"
+  integrity sha512-7+C2Iap42fbLyoKMaEIIDSb1TrcQVo+lGDItYAwb2JoAJr7QffyuDnbtvV/qzTyokOIMBrJgT+Rpsp1bPR8SjA==
 
 "@types/babel__core@^7.1.14":
   version "7.20.1"

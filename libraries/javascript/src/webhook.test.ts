@@ -1,6 +1,7 @@
-import * as utf8 from "@stablelib/utf8";
-import * as base64 from "@stablelib/base64";
-import * as sha256 from "fast-sha256";
+import { utf8fromString } from "@exodus/bytes/utf8.js";
+import { fromBase64, toBase64 } from "@exodus/bytes/base64.js";
+import { hmac } from "@noble/hashes/hmac.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 import { Webhook, WebhookVerificationError } from "./index";
 
@@ -25,8 +26,8 @@ class TestPayload {
     this.payload = defaultPayload;
     this.secret = defaultSecret;
 
-    const toSign = utf8.encode(`${this.id}.${this.timestamp}.${this.payload}`);
-    this.signature = base64.encode(sha256.hmac(base64.decode(this.secret), toSign));
+    const toSign = utf8fromString(`${this.id}.${this.timestamp}.${this.payload}`);
+    this.signature = toBase64(hmac(sha256, fromBase64(this.secret), toSign));
 
     this.header = {
       "webhook-id": this.id,
