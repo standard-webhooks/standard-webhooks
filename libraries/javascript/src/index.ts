@@ -88,7 +88,11 @@ export class Webhook {
       }
 
       if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
-        return JSON.parse(payload.toString());
+        const payloadString = payload.toString();
+        if (payloadString === "") {
+          return undefined;
+        }
+        return JSON.parse(payloadString);
       }
     }
     throw new WebhookVerificationError("No matching signature found");

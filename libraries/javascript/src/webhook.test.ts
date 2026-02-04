@@ -202,3 +202,23 @@ test("sign function works", () => {
   const signature = wh.sign(msgId, timestamp, payload);
   expect(signature).toBe(expected);
 });
+
+test("empty payload returns undefined", () => {
+  const wh = new Webhook(defaultSecret);
+
+  const msgId = defaultMsgID;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = "";
+
+  const toSign = utf8.encode(`${msgId}.${timestamp}.${payload}`);
+  const signature = base64.encode(sha256.hmac(base64.decode(defaultSecret), toSign));
+
+  const header = {
+    "webhook-id": msgId,
+    "webhook-signature": "v1," + signature,
+    "webhook-timestamp": timestamp.toString(),
+  };
+
+  const result = wh.verify(payload, header);
+  expect(result).toBeUndefined();
+});
