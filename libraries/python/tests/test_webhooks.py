@@ -162,6 +162,23 @@ def test_signature_verification_with_and_without_prefix() -> None:
 
 
 def test_signature_verification_with_unpadded_secret() -> None:
+    # needs no padding
+    secret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+    test_payload = PayloadForTesting(secret=secret)
+
+    wh = Webhook(secret)
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+    # needs one padding
+    secret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaS"
+    test_payload = PayloadForTesting(secret=secret + "=")
+
+    wh = Webhook(secret)
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+    # needs two padding
     secret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSwBr"
     test_payload = PayloadForTesting(secret=secret + "==")
 
@@ -169,6 +186,7 @@ def test_signature_verification_with_unpadded_secret() -> None:
     json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314
 
+    # with prefix
     wh = Webhook("whsec_" + secret)
 
     json = wh.verify(test_payload.payload, test_payload.header)
