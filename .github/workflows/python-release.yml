@@ -35,7 +35,7 @@ jobs:
 
       - name: Build sdist
         run: |
-          pyproject-build . --sdist
+          pyproject-build .
         working-directory: libraries/python
 
       - uses: pypa/gh-action-pypi-publish@release/v1
