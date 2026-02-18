@@ -26,12 +26,8 @@ class Webhook:
         if isinstance(whsecret, str):
             if whsecret.startswith(self._SECRET_PREFIX):
                 whsecret = whsecret[len(self._SECRET_PREFIX) :]
-
-            # add padding in case whsecret is unpadded base64
-            # b64decode accepts extra padding but not missing
-            whsecret += "=="
-
-            self._whsecret = base64.b64decode(whsecret)
+            # add padding in case whsecret is unpadded base64 (b64decode skips extra padding)
+            self._whsecret = base64.b64decode(whsecret + "==")
 
         if isinstance(whsecret, bytes):
             self._whsecret = whsecret
