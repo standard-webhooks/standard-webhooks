@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    standardwebhooks (1.0.0)
+    standardwebhooks (1.0.1)
 
 GEM
   remote: https://rubygems.org/
@@ -23,6 +23,7 @@ GEM
     rspec-support (3.13.0)
 
 PLATFORMS
+  arm64-darwin-24
   x86_64-linux
 
 DEPENDENCIES
