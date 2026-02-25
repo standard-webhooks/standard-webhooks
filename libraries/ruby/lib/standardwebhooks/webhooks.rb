@@ -43,7 +43,7 @@ module StandardWebhooks
         end
 
         if ::StandardWebhooks::secure_compare(signature, expected_signature)
-          return JSON.parse(payload, symbolize_names: true)
+          return JSON.parse(payload)
         end
       end
 
