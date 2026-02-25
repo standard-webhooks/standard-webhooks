@@ -60,7 +60,7 @@ module StandardWebhooks
       to_sign = "#{msg_id}.#{timestamp}.#{payload}"
       signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, to_sign)).strip
 
-      return "v1,#{signature}"
+      "v1,#{signature}"
     end
 
     private
