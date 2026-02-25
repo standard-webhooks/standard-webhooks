@@ -63,10 +63,11 @@ module StandardWebhooks
       "v1,#{signature}"
     end
 
-    private
-
     SECRET_PREFIX = "whsec_"
     TOLERANCE = 5 * 60
+    private_constant :SECRET_PREFIX, :TOLERANCE
+
+    private
 
     def verify_timestamp(timestamp_header)
       begin
