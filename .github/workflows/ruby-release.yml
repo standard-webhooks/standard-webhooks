@@ -37,7 +37,7 @@ jobs:
           mkdir -p "$HOME/.gem"
           touch "$HOME/.gem/credentials"
           chmod 0600 "$HOME/.gem/credentials"
-          printf -- "---\n:rubygems_api_key: %s\n" "$RUBYGEMS_AUTH_TOKEN" > "$HOME/.gem/credentials"
+          printf "---\n:rubygems_api_key: %s\n" "$RUBYGEMS_AUTH_TOKEN" > "$HOME/.gem/credentials"
 
           gem push pkg/*.gem
         env:
