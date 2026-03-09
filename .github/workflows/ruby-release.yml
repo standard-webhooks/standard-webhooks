@@ -7,6 +7,7 @@ on:
 
 permissions:
   id-token: write
+  contents: write
 
 jobs:
   build:
@@ -32,14 +33,9 @@ jobs:
           bundler exec rake build
         working-directory: libraries/ruby
 
-      - name: Publish
-        run: |
-          mkdir -p "$HOME/.gem"
-          touch "$HOME/.gem/credentials"
-          chmod 0600 "$HOME/.gem/credentials"
-          printf -- "---\n:rubygems_api_key: %s\n" "$RUBYGEMS_AUTH_TOKEN" > "$HOME/.gem/credentials"
+      - name: Configure trusted publishing credentials
+        uses: rubygems/configure-rubygems-credentials@v1.0.0
 
-          gem push pkg/*.gem
-        env:
-          RUBYGEMS_AUTH_TOKEN: "${{secrets.RUBYGEMS_AUTH_TOKEN}}"
+      - name: Release
+        run: gem push pkg/*.gem
         working-directory: libraries/ruby
