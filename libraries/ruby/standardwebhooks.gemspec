@@ -3,7 +3,7 @@
 
 Gem::Specification.new do |spec|
   spec.name    = "standardwebhooks"
-  spec.version = "1.0.1"
+  spec.version = "1.1.0"
   spec.authors = ["Standard Webhooks"]
   spec.license = "MIT"
   spec.summary = "Library for creating and verifying webhook signatures for the Standard Webhook spec."
