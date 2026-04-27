@@ -78,7 +78,7 @@ describe StandardWebhooks::Webhook do
         wh = StandardWebhooks::Webhook.new(testPayload.secret)
 
         json = wh.verify(testPayload.payload, testPayload.headers)
-        expect(json[:test]).to eq(2432232314)
+        expect(json["test"]).to eq(2432232314)
     end
 
     it "valid unbranded signature is valid and returns valid json" do
@@ -93,7 +93,7 @@ describe StandardWebhooks::Webhook do
         wh = StandardWebhooks::Webhook.new(testPayload.secret)
 
         json = wh.verify(testPayload.payload, testPayload.headers)
-        expect(json[:test]).to eq(2432232314)
+        expect(json["test"]).to eq(2432232314)
     end
 
     it "old timestamp raises error" do
@@ -133,7 +133,7 @@ describe StandardWebhooks::Webhook do
         wh = StandardWebhooks::Webhook.new(testPayload.secret)
 
         json = wh.verify(testPayload.payload, testPayload.headers)
-        expect(json[:test]).to eq(2432232314)
+        expect(json["test"]).to eq(2432232314)
     end
 
     it "signature verification works with and without prefix" do
@@ -141,11 +141,11 @@ describe StandardWebhooks::Webhook do
 
         wh = StandardWebhooks::Webhook.new(testPayload.secret)
         json = wh.verify(testPayload.payload, testPayload.headers)
-        expect(json[:test]).to eq(2432232314)
+        expect(json["test"]).to eq(2432232314)
 
         wh = StandardWebhooks::Webhook.new("whsec_" + testPayload.secret)
         json = wh.verify(testPayload.payload, testPayload.headers)
-        expect(json[:test]).to eq(2432232314)
+        expect(json["test"]).to eq(2432232314)
     end
 
     it "sign function works" do

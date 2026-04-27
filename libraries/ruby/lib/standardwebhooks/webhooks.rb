@@ -43,7 +43,7 @@ module StandardWebhooks
         end
 
         if ::StandardWebhooks::secure_compare(signature, expected_signature)
-          return JSON.parse(payload, symbolize_names: true)
+          return JSON.parse(payload)
         end
       end
 
@@ -60,13 +60,14 @@ module StandardWebhooks
       to_sign = "#{msg_id}.#{timestamp}.#{payload}"
       signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, to_sign)).strip
 
-      return "v1,#{signature}"
+      "v1,#{signature}"
     end
-
-    private
 
     SECRET_PREFIX = "whsec_"
     TOLERANCE = 5 * 60
+    private_constant :SECRET_PREFIX, :TOLERANCE
+
+    private
 
     def verify_timestamp(timestamp_header)
       begin
