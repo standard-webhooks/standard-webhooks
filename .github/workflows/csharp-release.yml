@@ -32,11 +32,17 @@ jobs:
           dotnet build --configuration Release StandardWebhooks --no-restore
         working-directory: libraries/csharp
 
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Release
         run: |
           dotnet nuget push "$(find StandardWebhooks/bin/Release/StandardWebhooks.*.nupkg)" \
             --api-key "$NUGET_API_KEY" \
             --source "https://api.nuget.org/v3/index.json"
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         working-directory: libraries/csharp
