@@ -6,6 +6,9 @@
 
 Open source tools and guidelines for sending webhooks easily, securely, and reliably
 
+[![NPM Downloads](https://img.shields.io/npm/dm/standardwebhooks?logo=npm)](https://www.npmjs.com/package/standardwebhooks)
+[![Pypi Downloads](https://img.shields.io/pypi/dm/standardwebhooks?logo=pypi)](https://pypi.org/project/standardwebhooks/)
+
 ## Introduction
 
 Webhooks are becoming increasingly popular and are used by many of the world's top companies for sending events to users of their APIs. However, the ecosystem is fragmented, with each webhook provider using different implementations and varying quality. Even high quality implementations vary, making them inherently incompatible. This fragmentation is a pain for the providers and consumers, stifling innovation.
