@@ -19,7 +19,7 @@ jobs:
         dependency-version: [prefer-lowest, prefer-stable]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         uses: php-actions/composer@v6
