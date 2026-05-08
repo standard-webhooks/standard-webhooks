@@ -36,14 +36,14 @@ The human-readable markdown file is the source of truth for the specification.
 
 There are reference implementations for the signature verification theme for a variety of languages, including:
 
-- [Python](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/python)
-- [JavaScript/TypeScript](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/javascript)
-- [Java/Kotlin](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/java)
-- [Rust](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/rust)
-- [Go](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/go)
-- [Ruby](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/ruby)
+- [Python](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/python) - `standardwebhooks` on PyPi.
+- [JavaScript/TypeScript](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/javascript) - `standardwebhooks` on NPM.
+- [Java/Kotlin](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/java) - `com.standardwebhooks:standardwebhooks` on Maven Central.
+- [Rust](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/rust) - `standardwebhooks` on crates.io.
+- [Go](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/go) - `github.com/standard-webhooks/standard-webhooks/libraries/go` as a Go module.
+- [Ruby](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/ruby) - `standardwebhooks` on RubyGems.
 - [PHP](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/php)
-- [C#](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/csharp)
+- [C#](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/csharp) - `StandardWebhooks.StandardWebhooks` on nuget.
 - [Elixir](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/elixir)
 
 ## Community implementations
