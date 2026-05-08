@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>net5.0;netstandard2.0</TargetFrameworks>
-    <PackageId>StandardWebhooks</PackageId>
+    <PackageId>StandardWebhooks.StandardWebhooks</PackageId>
     <Version>1.0.1</Version>
     <Authors>Standard Webhooks</Authors>
     <Company>Standard Webhooks</Company>
