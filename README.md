@@ -68,6 +68,10 @@ Members (in alphabetical order):
 * [Tom Hacohen](https://github.com/tasn/) ([Svix](https://www.svix.com))
 * [Vincent Le Goff](https://github.com/zekth) ([Kong](https://konghq.com))
 
+## Compatible implementations
+
+Standard Webhooks has been adopted by a variety of companies including: OpenAI, Anthropic, Google Gemini, Kong, Svix, Supabase, Vanta, Drata, Etsy, PagerDuty, Twilio, TaskRabbit and many others.
+
 ## Example ecosystem benefits of Standard Webhooks
 
 We believe "Standard Webhooks" can do to webhooks what JWT did to API authentication. Having a common protocol that is consistent will enable a variety of implementations to interoperate, reducing the development burden on webhook consumers and enabling new uses. Some of these benefits include:
@@ -89,7 +93,6 @@ There are a few complementary or partially overlapping efforts to standardize as
 - [AsyncAPI](https://www.asyncapi.com/)
 - [CloudEvents](https://cloudevents.io/)
 - [IETF HTTP Message Signatures](https://httpwg.org/http-extensions/draft-ietf-httpbis-message-signatures.html)
-- [Webhooks.fyi](https://webhooks.fyi/) - a collection of useful webhooks resources (not a standardization effort).
 
 ### In-active Projects 
 
