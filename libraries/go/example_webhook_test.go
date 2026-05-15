@@ -21,7 +21,7 @@ func Example_signatureFlow() {
 		id = "1234567890"
 	)
 
-	wh, err := standardwebhooks.NewWebhook(secretKey)
+	wh, err := standardwebhooks.NewWebhookSymmetric(secretKey)
 	if err != nil {
 		log.Fatal(err)
 	}
