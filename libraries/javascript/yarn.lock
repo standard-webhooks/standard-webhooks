@@ -770,9 +770,9 @@
   integrity sha512-ffSfySa1ZpZYzM5FQ2xILQ2jifQ+GlgbDJzRTCtaB0sqta88KYghB/tlSV2VS2iHRCvMdUvJlLOW1rmSkziWnw==
 
 "@stablelib/utf8@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-2.0.0.tgz#05725ef9d39ed10a017e1b6e01374bd998c83167"
-  integrity sha512-bHaUduwFKYgj6rRvA5udyyg+ASx6gJZiQaXvfBHb7A2r+X9tRIKJ/VmpQKFQnEMInpBTh7jJLy+Gt99GH9YZ9g==
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-2.1.0.tgz#daf62f0c65a6f1085e63364fe84c2ac3fec86f7f"
+  integrity sha512-peZgjgrPYOvjbJcVp91yYQLocr/qw5zcLsQBL+vH3D/d0IS+Cvcsbvlu+LLEcG8sVbkWMxr0ZABhY/0t3JMh0w==
 
 "@types/babel__core@^7.1.14":
   version "7.20.1"
