@@ -18,7 +18,7 @@ jobs:
         MIX_ENV: prod
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Elixir
         uses: erlef/setup-beam@v1

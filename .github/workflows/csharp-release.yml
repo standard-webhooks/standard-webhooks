@@ -15,7 +15,7 @@ jobs:
     environment: Release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET Core SDK
         uses: actions/setup-dotnet@v4
