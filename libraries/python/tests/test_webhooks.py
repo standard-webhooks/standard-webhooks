@@ -5,7 +5,7 @@ from math import floor
 
 import pytest
 
-from standardwebhooks.webhooks import Webhook, WebhookVerificationError, hmac_data
+from standardwebhooks.webhooks import EmptyWebhookSecretError, Webhook, WebhookVerificationError, hmac_data
 
 DEFAULT_MSG_ID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
 DEFAULT_PAYLOAD = '{"test": 2432232314}'
@@ -37,6 +37,15 @@ class PayloadForTesting:
             "webhook-signature": "v1," + signature,
             "webhook-timestamp": self.timestamp,
         }
+
+
+def test_empty_secret_raises_error() -> None:
+    with pytest.raises(EmptyWebhookSecretError):
+        Webhook("")
+    with pytest.raises(EmptyWebhookSecretError):
+        Webhook(b"")
+    with pytest.raises(EmptyWebhookSecretError):
+        Webhook("whsec_")
 
 
 def test_missing_id_raises_error() -> None:
