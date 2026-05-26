@@ -46,6 +46,9 @@ test("empty key raises error", () => {
   expect(() => {
     new Webhook(null as any);
   }).toThrow(Error);
+  expect(() => {
+    new Webhook("whsec_");
+  }).toThrow(Error);
 });
 
 test("missing id raises error", () => {

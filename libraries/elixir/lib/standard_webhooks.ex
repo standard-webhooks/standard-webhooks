@@ -97,6 +97,10 @@ defmodule StandardWebhooks do
     raise ArgumentError, message: "Secret must be a string"
   end
 
+  def sign(_id, _timestamp, _payload, secret) when secret == "" do
+    raise ArgumentError, message: "Secret must not be empty"
+  end
+
   def sign(id, timestamp, payload, @secret_prefix <> secret) do
     decoded_secret = Base.decode64!(secret)
 

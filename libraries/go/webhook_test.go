@@ -89,14 +89,14 @@ func TestWebhook(t *testing.T) {
 			},
 			expectedErr: true,
 		},
-        {
-            name:        "partial signature is invalid",
-            testPayload: newTestPayload(time.Now()),
-            modifyPayload: func(tp *testPayload) {
-                tp.header.Set("webhook-signature", "v1,")
-            },
-            expectedErr: true,
-        },
+		{
+			name:        "partial signature is invalid",
+			testPayload: newTestPayload(time.Now()),
+			modifyPayload: func(tp *testPayload) {
+				tp.header.Set("webhook-signature", "v1,")
+			},
+			expectedErr: true,
+		},
 		{
 			name:        "old timestamp fails",
 			testPayload: newTestPayload(time.Now().Add(tolerance * -1)),
@@ -218,4 +218,25 @@ func TestWebhookSign(t *testing.T) {
 		t.Fatalf("signature %s != expected signature %s", signature, expected)
 	}
 
+}
+
+func TestWebhookNoEmptySecrets(t *testing.T) {
+	_, err := standardwebhooks.NewWebhook("")
+	if err == nil {
+		t.Fatal("Expected error")
+	}
+}
+
+func TestWebhookNoEmptyPrefixedSecrets(t *testing.T) {
+	_, err := standardwebhooks.NewWebhook("whsec_")
+	if err == nil {
+		t.Fatal("Expected error")
+	}
+}
+
+func TestWebhookNewRawNoEmptyPrefixedSecrets(t *testing.T) {
+	_, err := standardwebhooks.NewWebhookRaw([]byte(""))
+	if err == nil {
+		t.Fatal("Expected error")
+	}
 }

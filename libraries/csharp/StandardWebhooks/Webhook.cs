@@ -25,6 +25,11 @@ namespace StandardWebhooks
             }
 
             this.key = Convert.FromBase64String(key);
+
+            if (this.key == null || this.key.Length == 0)
+            {
+                throw new EmptyWebhookSecretException("Missing webhook secret");
+            }
         }
 
         public Webhook(byte[] key)
@@ -39,7 +44,7 @@ namespace StandardWebhooks
             string msgTimestamp = headers.Get(UNBRANDED_TIMESTAMP_HEADER_KEY);
             if (String.IsNullOrEmpty(msgId) || String.IsNullOrEmpty(msgSignature) || String.IsNullOrEmpty(msgTimestamp))
             {
-	        throw new WebhookVerificationException("Missing Required Headers");
+                throw new WebhookVerificationException("Missing Required Headers");
             }
 
             var timestamp = Webhook.VerifyTimestamp(msgTimestamp);

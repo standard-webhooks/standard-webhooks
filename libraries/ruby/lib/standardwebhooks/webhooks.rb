@@ -7,9 +7,8 @@ require "uri"
 
 module StandardWebhooks
   class Webhook
-
     def self.new_using_raw_bytes(secret)
-      self.new(secret.pack("C*").force_encoding("UTF-8"))
+      new(secret.pack("C*").force_encoding("UTF-8"))
     end
 
     def initialize(secret)
@@ -18,6 +17,10 @@ module StandardWebhooks
       end
 
       @secret = Base64.decode64(secret)
+
+      if @secret.empty?
+        raise EmptyWebhookSecretError, "Webhook secret must not be blank"
+      end
     end
 
     def verify(payload, headers)
@@ -42,7 +45,7 @@ module StandardWebhooks
           next
         end
 
-        if ::StandardWebhooks::secure_compare(signature, expected_signature)
+        if ::StandardWebhooks.secure_compare(signature, expected_signature)
           return JSON.parse(payload)
         end
       end
@@ -52,7 +55,7 @@ module StandardWebhooks
 
     def sign(msg_id, timestamp, payload)
       begin
-        now = Integer(timestamp)
+        Integer(timestamp)
       rescue
         raise WebhookSigningError, "Invalid timestamp"
       end

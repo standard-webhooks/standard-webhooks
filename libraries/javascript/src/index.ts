@@ -36,9 +36,6 @@ export class Webhook {
   private readonly key: Uint8Array;
 
   constructor(secret: string | Uint8Array, options?: WebhookOptions) {
-    if (!secret) {
-      throw new Error("Secret can't be empty.");
-    }
     if (options?.format === "raw") {
       if (secret instanceof Uint8Array) {
         this.key = secret;
@@ -53,6 +50,9 @@ export class Webhook {
         secret = secret.substring(Webhook.prefix.length);
       }
       this.key = base64.decode(secret);
+    }
+    if (!this.key) {
+      throw new Error("Secret can't be empty.");
     }
   }
 

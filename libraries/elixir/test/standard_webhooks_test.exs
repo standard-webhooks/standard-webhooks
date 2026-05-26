@@ -51,6 +51,12 @@ defmodule StandardWebhooksTest do
       end
     end
 
+    test "raises error when secret is empty" do
+      assert_raise ArgumentError, "Secret must not be empty", fn ->
+        StandardWebhooks.sign(@id, @timestamp, @payload, "")
+      end
+    end
+
     test "returns valid signature when unencoded secret" do
       [signature_identifier, signature] =
         StandardWebhooks.sign(@id, @timestamp, @payload, @secret) |> String.split(",")
@@ -77,6 +83,14 @@ defmodule StandardWebhooksTest do
       signature = StandardWebhooks.sign(@id, @timestamp, @payload, @secret)
 
       {:ok, signature: signature}
+    end
+
+    test "fail true when empty encoded_secret and signature", %{signature: signature} do
+      conn = setup_webhook(signature)
+
+      assert_raise ArgumentError, "Secret must not be empty", fn ->
+        assert StandardWebhooks.verify(@payload, conn, "")
+      end
     end
 
     test "return true when valid encoded_secret and signature", %{signature: signature} do

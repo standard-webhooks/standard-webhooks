@@ -17,6 +17,9 @@ pub enum WebhookError {
     #[error("invalid secret")]
     InvalidSecret(#[from] base64::DecodeError),
 
+    #[error("secret may not be blank")]
+    EmptySecret,
+
     #[error("invalid header {0}")]
     InvalidHeader(&'static str),
 
@@ -38,7 +41,7 @@ pub enum WebhookError {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Webhook {
-    key: Vec<u8>,
+    key: Box<[u8]>,
 }
 
 impl Debug for Webhook {
@@ -60,11 +63,23 @@ impl Webhook {
         let secret = secret.strip_prefix(PREFIX).unwrap_or(secret);
         let key = base64::engine::general_purpose::STANDARD.decode(secret)?;
 
-        Ok(Webhook { key })
+        if key.is_empty() {
+            return Err(WebhookError::EmptySecret);
+        }
+
+        Ok(Webhook {
+            key: key.into_boxed_slice(),
+        })
     }
 
     pub fn from_bytes(secret: Vec<u8>) -> Result<Self, WebhookError> {
-        Ok(Webhook { key: secret })
+        if secret.is_empty() {
+            return Err(WebhookError::EmptySecret);
+        }
+
+        Ok(Webhook {
+            key: secret.into_boxed_slice(),
+        })
     }
 
     /// Verify the webhook signature against payload and headers

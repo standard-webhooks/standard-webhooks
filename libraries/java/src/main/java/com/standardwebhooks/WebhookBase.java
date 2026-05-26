@@ -10,6 +10,7 @@ import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.standardwebhooks.exceptions.EmptyWebhookSecretException;
 import com.standardwebhooks.exceptions.WebhookVerificationException;
 import com.standardwebhooks.exceptions.WebhookSigningException;
 
@@ -35,10 +36,16 @@ abstract class WebhookBase {
 			sec = sec.substring(WebhookBase.SECRET_PREFIX.length());
 		}
 		this.key = Base64.getDecoder().decode(sec);
+		if (this.key.length == 0) {
+			throw new EmptyWebhookSecretException("Webhook secret should not be empty");
+		}
 	}
 
 	protected WebhookBase(final byte[] secret) {
 		this.key = secret;
+		if (this.key.length == 0) {
+			throw new EmptyWebhookSecretException("Webhook secret should not be empty");
+		}
 	}
 
 	/**
