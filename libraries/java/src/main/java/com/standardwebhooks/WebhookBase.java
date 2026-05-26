@@ -30,7 +30,8 @@ abstract class WebhookBase {
 
 	protected final byte[] key;
 
-	protected WebhookBase(final String secret) {
+	protected WebhookBase(final String secret)
+			throws EmptyWebhookSecretException {
 		String sec = secret;
 		if (sec.startsWith(WebhookBase.SECRET_PREFIX)) {
 			sec = sec.substring(WebhookBase.SECRET_PREFIX.length());
@@ -41,7 +42,8 @@ abstract class WebhookBase {
 		}
 	}
 
-	protected WebhookBase(final byte[] secret) {
+	protected WebhookBase(final byte[] secret)
+			throws EmptyWebhookSecretException {
 		this.key = secret;
 		if (this.key.length == 0) {
 			throw new EmptyWebhookSecretException("Webhook secret should not be empty");
