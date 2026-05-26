@@ -55,7 +55,7 @@ module StandardWebhooks
 
     def sign(msg_id, timestamp, payload)
       begin
-        Integer(timestamp)
+        timestamp = Integer(timestamp)
       rescue
         raise WebhookSigningError, "Invalid timestamp"
       end
