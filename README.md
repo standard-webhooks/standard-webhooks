@@ -53,6 +53,11 @@ There are reference implementations for the signature verification theme for a v
 - [Swift](https://github.com/m1guelpf/swift-standard-webhooks)
 
 
+## Community Tools
+
+- [receiving-webhooks](https://github.com/svix/ai/blob/main/skills/receiving-webhooks/): an [AI skill](https://www.skills.sh/docs) that teaches agents to verify webhooks the right way.
+
+
 ## Technical steering committee
 
 The Standard Webhooks initiative, the specification, and development of tooling is driven by the community and guided by the technical steering committee.
