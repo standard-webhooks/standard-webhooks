@@ -47,6 +47,13 @@ namespace StandardWebhooks.Tests
         public const int TOLERANCE_IN_SECONDS = 5 * 60;
 
         [Fact]
+        public void TestEmptySecretRasiesException()
+        {
+            Assert.Throws<EmptyWebhookSecretException>(() => new Webhook(""));
+            Assert.Throws<EmptyWebhookSecretException>(() => new Webhook("whsec_"));
+        }
+
+        [Fact]
         public void TestMissingIdRasiesException()
         {
             var testPayload = new TestPayload(DateTimeOffset.UtcNow);

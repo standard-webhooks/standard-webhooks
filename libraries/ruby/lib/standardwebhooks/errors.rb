@@ -14,4 +14,7 @@ module StandardWebhooks
 
   class WebhookSigningError < StandardWebhooksError
   end
+
+  class EmptyWebhookSecretError < StandardWebhooksError
+  end
 end

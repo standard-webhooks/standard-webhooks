@@ -30,6 +30,7 @@ var (
 	ErrNoMatchingSignature = errors.New("no matching signature found")
 	ErrMessageTooOld       = errors.New("message timestamp too old")
 	ErrMessageTooNew       = errors.New("message timestamp too new")
+	ErrEmptySecret         = errors.New("webhook secret may not be empty")
 )
 
 type Webhook struct {
@@ -41,12 +42,18 @@ func NewWebhook(secret string) (*Webhook, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create webhook, err: %w", err)
 	}
+	if len(key) == 0 {
+		return nil, ErrEmptySecret
+	}
 	return &Webhook{
 		key: key,
 	}, nil
 }
 
 func NewWebhookRaw(secret []byte) (*Webhook, error) {
+	if len(secret) == 0 {
+		return nil, ErrEmptySecret
+	}
 	return &Webhook{
 		key: secret,
 	}, nil
