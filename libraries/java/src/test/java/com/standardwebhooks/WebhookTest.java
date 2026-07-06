@@ -9,6 +9,7 @@ import java.io.InputStream;
 
 import com.standardwebhooks.exceptions.WebhookVerificationException;
 import com.standardwebhooks.exceptions.WebhookSigningException;
+import com.standardwebhooks.exceptions.EmptyWebhookSecretException;
 
 import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
@@ -40,7 +41,7 @@ public class WebhookTest {
 
 
 	@Test
-	public void verifyValidPayloadAndHeaders() throws WebhookVerificationException {
+	public void verifyValidPayloadAndHeaders() throws WebhookVerificationException, EmptyWebhookSecretException {
 		TestScenario scenario = TestScenario.valid();
 		Webhook webhook = new Webhook(scenario.secret);
 
@@ -48,7 +49,7 @@ public class WebhookTest {
 	}
 
 	@Test
-	public void verifyValidPayloadWithMultipleSignaturesIsValid() throws WebhookVerificationException {
+	public void verifyValidPayloadWithMultipleSignaturesIsValid() throws WebhookVerificationException, EmptyWebhookSecretException {
 		TestScenario scenario = TestScenario.valid().withMultipleSignatures();
 
 		Webhook webhook = new Webhook(scenario.secret);
@@ -104,7 +105,7 @@ public class WebhookTest {
 	}
 
 	@Test
-	public void verifySecretWorksWithOrWithoutPrefix() throws WebhookVerificationException {
+	public void verifySecretWorksWithOrWithoutPrefix() throws WebhookVerificationException, EmptyWebhookSecretException {
 		TestScenario scenario = TestScenario.valid();
 
 		Webhook webhook = new Webhook(scenario.secret);
@@ -115,7 +116,7 @@ public class WebhookTest {
 	}
 
 	@Test
-	public void verifyCaseInsensitiveHeaders() throws WebhookVerificationException {
+	public void verifyCaseInsensitiveHeaders() throws WebhookVerificationException, EmptyWebhookSecretException {
 		TestScenario scenario = TestScenario.valid().withMixedCaseHeaders();
 
 		Webhook webhook = new Webhook(scenario.secret);
@@ -123,7 +124,7 @@ public class WebhookTest {
 	}
 
 	@Test
-	public void verifyWebhookSignWorks() throws WebhookSigningException {
+	public void verifyWebhookSignWorks() throws WebhookSigningException, EmptyWebhookSecretException {
 		TestScenario scenario = TestScenario.validSigned();
 		Webhook webhook = new Webhook(scenario.secret);
 		String signature = webhook.sign(scenario.id, Long.parseLong(scenario.timestamp), scenario.payload);
@@ -133,7 +134,7 @@ public class WebhookTest {
 	private ThrowingRunnable verify(final TestScenario scenario) {
 		return new ThrowingRunnable() {
 			@Override
-			public void run() throws WebhookVerificationException {
+			public void run() throws WebhookVerificationException, EmptyWebhookSecretException {
 				Webhook webhook = new Webhook(scenario.secret);
 				webhook.verify(scenario.payload, scenario.headersAsMap());
 			}
