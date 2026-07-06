@@ -201,12 +201,14 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $signature = $wh->sign($msgId, $timestamp, $payload);
     }
 
-    public function testRejectsEmptySecret() {
+    public function testRejectsEmptySecret()
+    {
         $this->expectException(\StandardWebhooks\Exception\EmptyWebhookSecretException::class);
         new \StandardWebhooks\Webhook("");
     }
 
-    public function testRejectsEmptyPrefixedSecret() {
+    public function testRejectsEmptyPrefixedSecret()
+    {
         $this->expectException(\StandardWebhooks\Exception\EmptyWebhookSecretException::class);
         new \StandardWebhooks\Webhook("whsec_");
     }

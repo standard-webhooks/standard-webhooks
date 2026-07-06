@@ -14,7 +14,7 @@ class Webhook
             $secret = substr($secret, strlen(Webhook::SECRET_PREFIX));
         }
         $this->secret = base64_decode($secret);
-        if $this->secret === "" {
+        if ($this->secret === "") {
             throw new Exception\EmptyWebhookSecretException("Missing webhook secret");
         }
     }
