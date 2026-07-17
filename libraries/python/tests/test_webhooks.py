@@ -107,6 +107,15 @@ def test_valid_signature_is_valid_and_returns_json() -> None:
     assert json["test"] == 2432232314
 
 
+def test_valid_signature_is_valid_without_returning_json() -> None:
+    test_payload = PayloadForTesting()
+
+    wh = Webhook(test_payload.secret)
+
+    result = wh.verify(test_payload.payload, test_payload.header, json_parse=False)
+    assert result is None
+
+
 def test_valid_unbranded_signature_is_valid_and_returns_json() -> None:
     test_payload = PayloadForTesting()
 

@@ -38,7 +38,13 @@ class Webhook:
         else:
             raise RuntimeError("Invalid webhook secret")
 
-    def verify(self, data: t.Union[bytes, str], headers: t.Dict[str, str]) -> t.Any:
+    def verify(
+        self,
+        data: t.Union[bytes, str],
+        headers: t.Dict[str, str],
+        *,
+        json_parse: bool = True,
+    ) -> t.Any:
         data = data if isinstance(data, str) else data.decode()
         headers = {k.lower(): v for (k, v) in headers.items()}
         msg_id = headers.get("webhook-id")
@@ -57,7 +63,10 @@ class Webhook:
                 continue
             sig_bytes = base64.b64decode(signature)
             if hmac.compare_digest(expected_sig, sig_bytes):
-                return json.loads(data)
+                if json_parse:
+                    return json.loads(data)
+                else:
+                    return
 
         raise WebhookVerificationError("No matching signature found")
 
