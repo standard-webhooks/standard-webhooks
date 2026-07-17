@@ -45,6 +45,21 @@ class Webhook:
         *,
         json_parse: bool = True,
     ) -> t.Any:
+        """
+        Verify the given webhook headers against the body bytes (data).
+
+        Args:
+            json_parse (bool): Whether to deserialize the data to (default: True)
+
+        Returns:
+            After successful verification: if json_parse is True, returns the
+            JSON-parsed input data; if it json_parse False, returns None.
+
+        Raises:
+            WebhookVerificationError if one of the required headers is missing,
+            invalid, too old or too new; or no matching signature is found.
+        """
+
         data = data if isinstance(data, str) else data.decode()
         headers = {k.lower(): v for (k, v) in headers.items()}
         msg_id = headers.get("webhook-id")
