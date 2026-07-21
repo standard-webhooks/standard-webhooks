@@ -20,6 +20,4 @@ jobs:
         working-directory: libraries/python
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.TWINE_PASSWORD }}
-          packages_dir: libraries/python/dist
+          packages-dir: libraries/python/dist
