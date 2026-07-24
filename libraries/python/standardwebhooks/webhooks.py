@@ -6,6 +6,9 @@ import typing as t
 from datetime import datetime, timedelta, timezone
 from math import floor
 
+import cryptography.exceptions
+import cryptography.hazmat.primitives.asymmetric.ed25519
+
 
 def hmac_data(key: bytes, data: bytes) -> bytes:
     return hmac.new(key, data, hashlib.sha256).digest()
@@ -16,25 +19,104 @@ class WebhookVerificationError(Exception):
 
 
 class EmptyWebhookSecretError(Exception):
-    pass
+    def __init__(self) -> None:
+        self.message = "webhook secret may not be empty"
+
+
+class BaseWebhookSecret(object):
+    VERSION: str = ""
+
+    def verify(self, msg_id: str, timestamp: datetime, data: str, signature: bytes) -> bool:
+        _ = (msg_id, timestamp, data, signature)
+        raise NotImplementedError
+
+    def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
+        _ = (msg_id, timestamp, data)
+        raise NotImplementedError
+
+    def to_sign(self, msg_id: str, timestamp: datetime, data: str) -> bytes:
+        timestamp_str = str(floor(timestamp.replace(tzinfo=timezone.utc).timestamp()))
+        to_sign = b".".join([msg_id.encode("utf-8"), timestamp_str.encode("ascii"), data.encode("utf-8")])
+        return to_sign
+
+
+class HmacWebhookSecret(BaseWebhookSecret):
+    VERSION: str = "v1"
+    SECRET_PREFIX: str = "whsec_"
+    wbsecret: bytes
+
+    def __init__(self, whsecret: bytes):
+        self.whsecret = whsecret
+
+    def verify(self, msg_id: str, timestamp: datetime, data: str, signature: bytes) -> bool:
+        expected_sig = base64.b64decode(self.sign(msg_id=msg_id, timestamp=timestamp, data=data).split(",")[1])
+        return hmac.compare_digest(expected_sig, signature)
+
+    def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
+        signature = hmac_data(self.whsecret, self.to_sign(msg_id, timestamp, data))
+        return f"{self.VERSION},{base64.b64encode(signature).decode('ascii')}"
+
+
+class VerifyOnlyEd25519WebhookSecret(BaseWebhookSecret):
+    VERSION: str = "v1a"
+    SECRET_PREFIX: str = "whpk_"
+    pubkey: cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PublicKey
+
+    def __init__(self, whsecret: bytes):
+        self.pubkey = cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PublicKey.from_public_bytes(whsecret)
+
+    def verify(self, msg_id: str, timestamp: datetime, data: str, signature: bytes) -> bool:
+        body = self.to_sign(msg_id, timestamp, data)
+        try:
+            self.pubkey.verify(signature, body)
+            return True
+        except cryptography.exceptions.InvalidSignature:
+            return False
+
+    def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
+        _ = (msg_id, timestamp, data)
+        raise ValueError("Cannot sign webhooks with a verify-only key")
+
+
+class Ed25519WebhookSecret(VerifyOnlyEd25519WebhookSecret):
+    VERSION: str = "v1a"
+    SECRET_PREFIX: str = "whsk_"
+    privkey: cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey
+    pubkey: cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PublicKey
+
+    def __init__(self, whsecret: bytes):
+        self.privkey = cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey.from_private_bytes(whsecret)
+        self.pubkey = self.privkey.public_key()
+
+    def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
+        body = self.to_sign(msg_id, timestamp, data)
+        raw_signature = self.privkey.sign(body)
+        encoded = base64.b64encode(raw_signature).decode("ascii")
+        return f"{self.VERSION},{encoded}"
 
 
 class Webhook:
-    _SECRET_PREFIX: str = "whsec_"
-    _whsecret: bytes
+    _whsecret: BaseWebhookSecret
 
     def __init__(self, whsecret: t.Union[str, bytes]):
         if isinstance(whsecret, str):
-            if whsecret.startswith(self._SECRET_PREFIX):
-                whsecret = whsecret[len(self._SECRET_PREFIX) :]
-            # add padding in case whsecret is unpadded base64 (b64decode skips extra padding)
+            for cls in (HmacWebhookSecret, VerifyOnlyEd25519WebhookSecret, Ed25519WebhookSecret):
+                if whsecret.startswith(cls.SECRET_PREFIX):
+                    remainder = whsecret.removeprefix(cls.SECRET_PREFIX)
+                    # add padding in case whsecret is unpadded base64 (b64decode skips extra padding)
+                    raw = base64.b64decode(remainder + "==")
+                    if not raw:
+                        raise EmptyWebhookSecretError()
+                    self._whsecret = cls(raw)
+                    return
             whsecret = base64.b64decode(whsecret + "==")
 
         if not whsecret:
-            raise EmptyWebhookSecretError("webhook secret may not be empty")
+            raise EmptyWebhookSecretError()
 
+        # legacy fallback for unprefixed secrets
         if isinstance(whsecret, bytes):
-            self._whsecret = whsecret
+            self._whsecret = HmacWebhookSecret(whsecret)
         else:
             raise RuntimeError("Invalid webhook secret")
 
@@ -70,14 +152,13 @@ class Webhook:
 
         timestamp = self.__verify_timestamp(msg_timestamp)
 
-        expected_sig = base64.b64decode(self.sign(msg_id=msg_id, timestamp=timestamp, data=data).split(",")[1])
         passed_sigs = msg_signature.split(" ")
         for versioned_sig in passed_sigs:
             (version, signature) = versioned_sig.split(",")
-            if version != "v1":
+            if self._whsecret.VERSION != version:
                 continue
-            sig_bytes = base64.b64decode(signature)
-            if hmac.compare_digest(expected_sig, sig_bytes):
+            raw_signature = base64.b64decode(signature)
+            if self._whsecret.verify(msg_id, timestamp, data, raw_signature):
                 if json_parse:
                     return json.loads(data)
                 else:
@@ -86,10 +167,7 @@ class Webhook:
         raise WebhookVerificationError("No matching signature found")
 
     def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
-        timestamp_str = str(floor(timestamp.replace(tzinfo=timezone.utc).timestamp()))
-        to_sign = f"{msg_id}.{timestamp_str}.{data}".encode()
-        signature = hmac_data(self._whsecret, to_sign)
-        return f"v1,{base64.b64encode(signature).decode('utf-8')}"
+        return self._whsecret.sign(msg_id, timestamp, data)
 
     def __verify_timestamp(self, timestamp_header: str) -> datetime:
         webhook_tolerance = timedelta(minutes=5)

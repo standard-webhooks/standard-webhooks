@@ -31,7 +31,7 @@ classifiers=[
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-dependencies = []
+dependencies = ["cryptography >= 40"]
 
 [dependency-groups]
 dev = [
