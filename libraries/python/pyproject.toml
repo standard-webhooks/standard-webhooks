@@ -31,6 +31,7 @@ classifiers=[
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
+license-files = ["LICENSE"]
 dependencies = []
 
 [project.urls]
