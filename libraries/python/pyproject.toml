@@ -1,7 +1,7 @@
 [project]
 name = "standardwebhooks"
 dynamic = ["version"]
-description = "Standard Webhooks"
+description = "Standard Webhooks library for verifying and signing webhooks from Python"
 authors = [
     { name = "Standard Webhooks Team" }
 ]
@@ -32,6 +32,11 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 dependencies = []
+
+[project.urls]
+Homepage = "https://www.standardwebhooks.com/"
+Repository = "https://github.com/standard-webhooks/standard-webhooks"
+Issues = "https://github.com/standard-webhooks/standard-webhooks/issues"
 
 [dependency-groups]
 dev = [
