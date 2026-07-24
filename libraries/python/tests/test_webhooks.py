@@ -3,6 +3,7 @@ import typing as t
 from datetime import datetime, timedelta, timezone
 from math import floor
 
+import cryptography.hazmat.primitives.asymmetric.ed25519
 import pytest
 
 from standardwebhooks.webhooks import EmptyWebhookSecretError, Webhook, WebhookVerificationError, hmac_data
@@ -221,3 +222,102 @@ def test_sign_function() -> None:
     wh = Webhook(key)
     signature = wh.sign(msg_id=msg_id, timestamp=timestamp, data=payload)
     assert signature == expected
+
+
+def _make_ed25519_secret_key() -> str:
+    raw_privkey = cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey.generate()
+    return f"whsk_{base64.b64encode(raw_privkey.private_bytes_raw()).decode('ascii')}"
+
+
+def test_ed25519_round_trip() -> None:
+    now = datetime.now(tz=timezone.utc)
+
+    wh = Webhook(_make_ed25519_secret_key())
+    signature = wh.sign(DEFAULT_MSG_ID, now, DEFAULT_PAYLOAD)
+    assert signature.startswith("v1a,")
+
+    assert wh.verify(
+        DEFAULT_PAYLOAD,
+        {
+            "webhook-id": DEFAULT_MSG_ID,
+            "webhook-timestamp": str(floor(now.timestamp())),
+            "webhook-signature": signature,
+        },
+    )
+
+
+def test_ed25519_invalid() -> None:
+    now = datetime.now(tz=timezone.utc)
+
+    wh = Webhook(_make_ed25519_secret_key())
+    signature = wh.sign(DEFAULT_MSG_ID, now, DEFAULT_PAYLOAD)
+    assert signature.startswith("v1a,")
+
+    wh2 = Webhook(_make_ed25519_secret_key())
+
+    with pytest.raises(WebhookVerificationError):
+        wh2.verify(
+            DEFAULT_PAYLOAD,
+            {
+                "webhook-id": DEFAULT_MSG_ID,
+                "webhook-timestamp": str(floor(now.timestamp())),
+                "webhook-signature": signature,
+            },
+        )
+
+
+def test_ed25519_pubkey_only() -> None:
+    now = datetime.now(tz=timezone.utc)
+
+    raw_privkey = cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey.generate()
+    privkey = f"whsk_{base64.b64encode(raw_privkey.private_bytes_raw()).decode('ascii')}"
+
+    wh = Webhook(privkey)
+    signature = wh.sign(DEFAULT_MSG_ID, now, DEFAULT_PAYLOAD)
+    assert signature.startswith("v1a,")
+
+    raw_pubkey = raw_privkey.public_key()
+    pubkey = f"whpk_{base64.b64encode(raw_pubkey.public_bytes_raw()).decode('ascii')}"
+    wh_pub = Webhook(pubkey)
+
+    assert wh_pub.verify(
+        DEFAULT_PAYLOAD,
+        {
+            "webhook-id": DEFAULT_MSG_ID,
+            "webhook-timestamp": str(floor(now.timestamp())),
+            "webhook-signature": signature,
+        },
+    )
+
+
+def test_ed25519_hmac_mixed() -> None:
+    raw_privkey = cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey.generate()
+    encoded_privkey = base64.b64encode(raw_privkey.private_bytes_raw()).decode("ascii")
+    privkey = f"whsk_{encoded_privkey}"
+
+    now = datetime.now(tz=timezone.utc)
+
+    wh = Webhook(privkey)
+    ed25519_signature = wh.sign(DEFAULT_MSG_ID, now, DEFAULT_PAYLOAD)
+    assert ed25519_signature.startswith("v1a,")
+
+    wh2 = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    hmac_signature = wh2.sign(DEFAULT_MSG_ID, now, DEFAULT_PAYLOAD)
+    assert hmac_signature.startswith("v1,")
+
+    assert wh.verify(
+        DEFAULT_PAYLOAD,
+        {
+            "webhook-id": DEFAULT_MSG_ID,
+            "webhook-timestamp": str(floor(now.timestamp())),
+            "webhook-signature": f"{hmac_signature} {ed25519_signature}",
+        },
+    )
+    assert wh2.verify(
+        DEFAULT_PAYLOAD,
+        {
+            "webhook-id": DEFAULT_MSG_ID,
+            "webhook-timestamp": str(floor(now.timestamp())),
+            "webhook-signature": f"{hmac_signature} {ed25519_signature}",
+        },
+    )
