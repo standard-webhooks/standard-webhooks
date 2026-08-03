@@ -1,37 +1,57 @@
 name: Python Lint
-
 on:
   pull_request:
     paths:
       - "libraries/python/**"
       - ".github/workflows/python-lint.yml"
-
+defaults:
+  run:
+    working-directory: libraries/python
 jobs:
-  build:
+  lint:
     name: Python Lint
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          python-version: "3.11"
-
+          python-version: "3.14"
       - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt .
-          python -m pip install -r requirements-dev.txt .
-        working-directory: libraries/python
-
+        run: uv sync
       - name: Run linting
+        run: uv run scripts/lint.sh
+  test:
+    name: Python Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install deps
+        run: uv sync
+      - name: Run tests
+        run: uv run pytest
+  python-test-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.14"
+      - name: Install deps
+        run: uv sync
+      - name: Build
+        run: uv build
+      - name: Test install wheel
+        # Run from outside the source tree so the import can only resolve to the
+        # installed wheel, and check the built metadata matches __version__.
         run: |
-          sh ./scripts/lint.sh
-        working-directory: libraries/python
-
-      - name: Run test
-        run: |
-          pytest
-        working-directory: libraries/python
+          mkdir -p /tmp/test-install
+          cd /tmp/test-install
+          uv venv --python 3.14
+          uv pip install --python .venv "$GITHUB_WORKSPACE"/libraries/python/dist/standardwebhooks-*.whl
+          .venv/bin/python -c "import importlib.metadata as m, standardwebhooks as s; assert m.version('standardwebhooks') == s.__version__, (m.version('standardwebhooks'), s.__version__); print('ok', s.__version__)"

@@ -214,7 +214,7 @@ def test_signature_verification_with_unpadded_secret() -> None:
 def test_sign_function() -> None:
     key = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
     msg_id = "msg_p5jXN8AQM9LWM0D4loKWxJek"
-    timestamp = datetime.utcfromtimestamp(1614265330)
+    timestamp = datetime.fromtimestamp(1614265330, tz=timezone.utc)
     payload = '{"test": 2432232314}'
     expected = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
 
