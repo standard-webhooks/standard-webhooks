@@ -57,6 +57,7 @@ There are reference implementations for the signature verification theme for a v
 ## Community Tools
 
 - [receiving-webhooks](https://github.com/svix/ai/blob/main/skills/receiving-webhooks/): an [AI skill](https://www.skills.sh/docs) that teaches agents to verify webhooks the right way.
+- [webhook-consumer-handbook](https://github.com/Artemooon/webhook-consumer-handbook): Practical design-patterns for building production-ready webhook consumers.
 
 
 ## Technical steering committee
