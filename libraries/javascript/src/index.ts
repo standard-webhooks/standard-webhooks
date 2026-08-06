@@ -114,7 +114,9 @@ export class Webhook {
 
       if (this.scheme === "v1") {
         const expectedSignature = base64.encode(sha256.hmac(this.key, toSign));
-        if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
+        if (
+          timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))
+        ) {
           if (payloadString === "") {
             return undefined;
           }
