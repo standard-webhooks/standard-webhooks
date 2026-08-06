@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "./timing_safe_equal";
 import * as base64 from "@stablelib/base64";
 import * as sha256 from "fast-sha256";
+import * as ed25519 from "@stablelib/ed25519";
 
 const WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60; // 5 minutes
 
@@ -31,9 +32,16 @@ export interface WebhookOptions {
   format?: "raw";
 }
 
+type Scheme = "v1" | "v1a";
+type AsymmetricKeyRole = "private" | "public";
+
 export class Webhook {
-  private static prefix = "whsec_";
+  private static secretPrefix = "whsec_";
+  private static privateKeyPrefix = "whsk_";
+  private static publicKeyPrefix = "whpk_";
   private readonly key: Uint8Array;
+  private readonly scheme: Scheme;
+  private readonly asymmetricKeyRole?: AsymmetricKeyRole;
 
   constructor(secret: string | Uint8Array, options?: WebhookOptions) {
     if (options?.format === "raw") {
@@ -42,16 +50,28 @@ export class Webhook {
       } else {
         this.key = Uint8Array.from(secret, (c) => c.charCodeAt(0));
       }
+      this.scheme = "v1";
     } else {
       if (typeof secret !== "string") {
         throw new Error("Expected secret to be of type string");
       }
-      if (secret.startsWith(Webhook.prefix)) {
-        secret = secret.substring(Webhook.prefix.length);
+      if (secret.startsWith(Webhook.privateKeyPrefix)) {
+        this.key = base64.decode(secret.substring(Webhook.privateKeyPrefix.length));
+        this.scheme = "v1a";
+        this.asymmetricKeyRole = "private";
+      } else if (secret.startsWith(Webhook.publicKeyPrefix)) {
+        this.key = base64.decode(secret.substring(Webhook.publicKeyPrefix.length));
+        this.scheme = "v1a";
+        this.asymmetricKeyRole = "public";
+      } else {
+        if (secret.startsWith(Webhook.secretPrefix)) {
+          secret = secret.substring(Webhook.secretPrefix.length);
+        }
+        this.key = base64.decode(secret);
+        this.scheme = "v1";
       }
-      this.key = base64.decode(secret);
     }
-    if (!this.key) {
+    if (!this.key || this.key.length === 0) {
       throw new Error("Secret can't be empty.");
     }
   }
@@ -75,24 +95,43 @@ export class Webhook {
 
     const timestamp = this.verifyTimestamp(msgTimestamp);
 
-    const computedSignature = this.sign(msgId, timestamp, payload);
-    const expectedSignature = computedSignature.split(",")[1];
+    if (typeof payload !== "string" && payload.constructor.name !== "Buffer") {
+      throw new Error("Expected payload to be of type string or Buffer.");
+    }
+    const payloadString = payload.toString();
+
+    const encoder = new globalThis.TextEncoder();
+    const timestampNumber = Math.floor(timestamp.getTime() / 1000);
+    const toSign = encoder.encode(`${msgId}.${timestampNumber}.${payloadString}`);
 
     const passedSignatures = msgSignature.split(" ");
 
-    const encoder = new globalThis.TextEncoder();
     for (const versionedSignature of passedSignatures) {
       const [version, signature] = versionedSignature.split(",");
-      if (version !== "v1") {
+      if (version !== this.scheme || !signature) {
         continue;
       }
 
-      if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
-        const payloadString = payload.toString();
-        if (payloadString === "") {
-          return undefined;
+      if (this.scheme === "v1") {
+        const expectedSignature = base64.encode(sha256.hmac(this.key, toSign));
+        if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
+          if (payloadString === "") {
+            return undefined;
+          }
+          return JSON.parse(payloadString);
         }
-        return JSON.parse(payloadString);
+      } else {
+        try {
+          const decodedSignature = base64.decode(signature);
+          if (ed25519.verify(this.key, toSign, decodedSignature)) {
+            if (payloadString === "") {
+              return undefined;
+            }
+            return JSON.parse(payloadString);
+          }
+        } catch {
+          continue;
+        }
       }
     }
     throw new WebhookVerificationError("No matching signature found");
@@ -110,6 +149,17 @@ export class Webhook {
     const encoder = new TextEncoder();
     const timestampNumber = Math.floor(timestamp.getTime() / 1000);
     const toSign = encoder.encode(`${msgId}.${timestampNumber}.${payload}`);
+
+    if (this.scheme === "v1a") {
+      if (this.asymmetricKeyRole !== "private") {
+        throw new Error(
+          "Cannot sign with a public key. Provide a whsk_ private key to sign webhooks."
+        );
+      }
+      const expectedSignature = base64.encode(ed25519.sign(this.key, toSign));
+      return `v1a,${expectedSignature}`;
+    }
+
     const expectedSignature = base64.encode(sha256.hmac(this.key, toSign));
     return `v1,${expectedSignature}`;
   }
