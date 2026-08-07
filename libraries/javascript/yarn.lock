@@ -812,11 +812,6 @@
     "@stablelib/hash" "^2.0.0"
     "@stablelib/wipe" "^2.0.1"
 
-"@stablelib/utf8@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@stablelib/utf8/-/utf8-2.0.0.tgz#05725ef9d39ed10a017e1b6e01374bd998c83167"
-  integrity sha512-bHaUduwFKYgj6rRvA5udyyg+ASx6gJZiQaXvfBHb7A2r+X9tRIKJ/VmpQKFQnEMInpBTh7jJLy+Gt99GH9YZ9g==
-
 "@stablelib/wipe@^2.0.1":
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/@stablelib/wipe/-/wipe-2.0.1.tgz#9bc1d20519aa4fc513fe1992cf8061bab33c3049"

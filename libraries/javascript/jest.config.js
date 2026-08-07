@@ -1,4 +1,7 @@
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
+  testEnvironment: "node",
+  transform: {
+    "^.+\\.(ts|js)$": ["ts-jest", { isolatedModules: true }],
+  },
+  transformIgnorePatterns: ["node_modules/(?!@stablelib)"],
 };
