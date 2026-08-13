@@ -43,7 +43,7 @@ Issues = "https://github.com/standard-webhooks/standard-webhooks/issues"
 dev = [
     "mypy>=1.4.0",
     "pytest",
-    "ruff>=0.1.8",
+    "ruff>=0.16.2",
     "ty>=0.0.32"
 ]
 
