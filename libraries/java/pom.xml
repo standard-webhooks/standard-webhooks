@@ -87,7 +87,27 @@
                             <target>1.8</target>
                         </configuration>
                     </execution>
-                    <!-- Compile Java 11 override to MRJAR location -->
+                    <!-- Compile the module descriptor to META-INF/versions/9 so the JAR is an
+                         explicit JPMS module on Java 9+ while the root classes stay Java 8.
+                         multiReleaseOutput patches the Java 8 classes into the module being compiled. -->
+                    <execution>
+                        <id>java9-compile</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <release>9</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java9</compileSourceRoot>
+                            </compileSourceRoots>
+                            <multiReleaseOutput>true</multiReleaseOutput>
+                            <jdkToolchain>
+                                <version>11</version>
+                            </jdkToolchain>
+                        </configuration>
+                    </execution>
+                    <!-- Compile Java 11 override (and its module descriptor) to MRJAR location -->
                     <execution>
                         <id>java11-compile</id>
                         <phase>prepare-package</phase>
@@ -99,7 +119,7 @@
                             <compileSourceRoots>
                                 <compileSourceRoot>${project.basedir}/src/main/java11</compileSourceRoot>
                             </compileSourceRoots>
-                            <outputDirectory>${project.build.outputDirectory}/META-INF/versions/11</outputDirectory>
+                            <multiReleaseOutput>true</multiReleaseOutput>
                             <jdkToolchain>
                                 <version>11</version>
                             </jdkToolchain>
