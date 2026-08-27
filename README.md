@@ -54,9 +54,9 @@ There are reference implementations for the signature verification theme for a v
 - [Swift](https://github.com/m1guelpf/swift-standard-webhooks)
 
 
-## Community Tools
+## Tools
 
-- [receiving-webhooks](https://github.com/svix/ai/blob/main/skills/receiving-webhooks/): an [AI skill](https://www.skills.sh/docs) that teaches agents to verify webhooks the right way.
+- [receiving-webhooks](https://github.com/standard-webhooks/standard-webhooks/blob/main/skills/receiving-webhooks/): an [AI skill](https://www.skills.sh/docs) that teaches agents to verify webhooks the right way.
 
 
 ## Technical steering committee
