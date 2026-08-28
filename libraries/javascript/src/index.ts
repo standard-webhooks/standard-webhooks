@@ -56,18 +56,24 @@ export class Webhook {
     }
   }
 
+  /** Verify the given webhook headers against the body bytes (payload).
+   *
+   * @returns After successful verification: returns the JSON-parsed input data
+   * @throws `WebhookVerificationError` if one of the required headers is missing,
+   *     invalid, too old or too new; or no matching signatures is found
+   */
   public verify(
     payload: string | Buffer,
-    headers_: WebhookUnbrandedRequiredHeaders | Record<string, string>
+    headers: WebhookUnbrandedRequiredHeaders | Record<string, string>
   ): unknown {
-    const headers: Record<string, string> = {};
-    for (const key of Object.keys(headers_)) {
-      headers[key.toLowerCase()] = (headers_ as Record<string, string>)[key];
+    const normalizedHeaders: Record<string, string> = {};
+    for (const key of Object.keys(headers)) {
+      normalizedHeaders[key.toLowerCase()] = (headers as Record<string, string>)[key];
     }
 
-    const msgId = headers["webhook-id"];
-    const msgSignature = headers["webhook-signature"];
-    const msgTimestamp = headers["webhook-timestamp"];
+    const msgId = normalizedHeaders["webhook-id"];
+    const msgSignature = normalizedHeaders["webhook-signature"];
+    const msgTimestamp = normalizedHeaders["webhook-timestamp"];
 
     if (!msgSignature || !msgId || !msgTimestamp) {
       throw new WebhookVerificationError("Missing required headers");
