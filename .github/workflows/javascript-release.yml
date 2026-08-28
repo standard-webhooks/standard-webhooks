@@ -2,8 +2,8 @@ name: JavaScript Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - "**"
 
 permissions:
   id-token: write
