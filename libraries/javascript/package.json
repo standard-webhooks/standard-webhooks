@@ -14,12 +14,13 @@
   "main": "./dist/index.js",
   "typings": "./dist/index.d.ts",
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "!dist/**/*.test.*"
   ],
   "scripts": {
     "build": "tsc",
     "prepare": "yarn run build",
-    "test": "jest",
+    "test": "tsc && node --test dist/*.test.js",
     "prepublishOnly": "yarn lint",
     "lint:eslint": "eslint src",
     "lint:prettier": "prettier --write src/**.ts",
@@ -33,14 +34,11 @@
   "devDependencies": {
     "@stablelib/utf8": "^2.0.0",
     "@types/node": "^26.1.0",
-    "@types/jest": "^29.5.11",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
     "@typescript-eslint/typescript-estree": "^7.0.0",
     "eslint": "^9.0.0",
-    "jest": "^29.7.0",
     "prettier": "^3.2.2",
-    "ts-jest": "^29.1.1",
     "typescript": "^5.3.3"
   }
 }

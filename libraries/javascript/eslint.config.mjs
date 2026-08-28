@@ -17,7 +17,6 @@ export default [
       globals:{
         ...globals['shared-node-browser'],
         ...globals.es2017,
-        ...globals.jest,
         ...globals.node,
       },
     },
