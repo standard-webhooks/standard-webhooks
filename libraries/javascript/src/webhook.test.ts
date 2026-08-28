@@ -1,7 +1,7 @@
-import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import * as utf8 from "@stablelib/utf8";
+import { test } from "node:test";
 import * as base64 from "@stablelib/base64";
+import * as utf8 from "@stablelib/utf8";
 import * as sha256 from "fast-sha256";
 
 import { Webhook, WebhookVerificationError } from "./index";
@@ -32,7 +32,7 @@ class TestPayload {
 
     this.header = {
       "webhook-id": this.id,
-      "webhook-signature": "v1," + this.signature,
+      "webhook-signature": `v1,${this.signature}`,
       "webhook-timestamp": this.timestamp.toString(),
     };
   }
@@ -133,7 +133,7 @@ test("valid signature is valid and returns valid json", () => {
   const testPayload = new TestPayload();
 
   const result = wh.verify(testPayload.payload, testPayload.header);
-  assert.deepStrictEqual(result, { "test": 2432232314 });
+  assert.deepStrictEqual(result, { test: 2432232314 });
 });
 
 test("valid signature is valid without returning json", () => {
@@ -199,7 +199,7 @@ test("verification works with and without signature prefix", () => {
   let wh = new Webhook(defaultSecret);
   wh.verify(testPayload.payload, testPayload.header);
 
-  wh = new Webhook("whsec_" + defaultSecret);
+  wh = new Webhook(`whsec_${defaultSecret}`);
   wh.verify(testPayload.payload, testPayload.header);
 });
 
@@ -228,7 +228,7 @@ test("empty payload returns undefined", () => {
 
   const header = {
     "webhook-id": msgId,
-    "webhook-signature": "v1," + signature,
+    "webhook-signature": `v1,${signature}`,
     "webhook-timestamp": timestamp.toString(),
   };
 
