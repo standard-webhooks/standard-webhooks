@@ -1,6 +1,6 @@
-import { timingSafeEqual } from "./timing_safe_equal";
 import * as base64 from "@stablelib/base64";
 import * as sha256 from "fast-sha256";
+import { timingSafeEqual } from "./timing_safe_equal";
 
 const WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60; // 5 minutes
 
@@ -71,7 +71,7 @@ export class Webhook {
   public verify(
     payload: string | Buffer,
     headers: WebhookUnbrandedRequiredHeaders | Record<string, string>,
-    options?: VerifyOptions,
+    options?: VerifyOptions
   ): unknown {
     const jsonParse = options?.jsonParse ?? true;
 
@@ -136,7 +136,7 @@ export class Webhook {
   private verifyTimestamp(timestampHeader: string): Date {
     const now = Math.floor(Date.now() / 1000);
     const timestamp = parseInt(timestampHeader, 10);
-    if (isNaN(timestamp)) {
+    if (Number.isNaN(timestamp)) {
       throw new WebhookVerificationError("Invalid Signature Headers");
     }
 

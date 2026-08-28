@@ -21,15 +21,15 @@ jobs:
 
       - name: Install modules
         run: |
-          yarn
+          npm ci
         working-directory: libraries/javascript
 
       - name: Lint
         run: |
-          yarn run lint
+          npm run check
         working-directory: libraries/javascript
 
       - name: Test
         run: |
-          yarn test
+          npm test
         working-directory: libraries/javascript
