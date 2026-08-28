@@ -49,7 +49,7 @@ class Webhook:
         Verify the given webhook headers against the body bytes (data).
 
         Args:
-            json_parse (bool): Whether to deserialize the data to (default: True)
+            json_parse (bool): Whether to parse the data as JSON on success (default: True)
 
         Returns:
             After successful verification: if json_parse is True, returns the
