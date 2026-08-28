@@ -24,7 +24,7 @@ jobs:
 
       - name: Install modules
         run: |
-          yarn
+          npm ci
         working-directory: libraries/javascript
 
       - name: Publish
