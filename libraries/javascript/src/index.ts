@@ -51,7 +51,7 @@ export class Webhook {
       }
       this.key = base64.decode(secret);
     }
-    if (!this.key) {
+    if (this.key.length === 0) {
       throw new Error("Secret can't be empty.");
     }
   }
