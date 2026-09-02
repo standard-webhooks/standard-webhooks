@@ -201,6 +201,36 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $signature = $wh->sign($msgId, $timestamp, $payload);
     }
 
+    public function testVerifyWithUpperCaseHeaders()
+    {
+        $testPayload = new TestPayload(time());
+        $upperHeaders = [
+            'WEBHOOK-ID'        => $testPayload->header['webhook-id'],
+            'WEBHOOK-TIMESTAMP' => $testPayload->header['webhook-timestamp'],
+            'WEBHOOK-SIGNATURE' => $testPayload->header['webhook-signature'],
+        ];
+
+        $wh = new \StandardWebhooks\Webhook($testPayload->secret);
+        $json = $wh->verify($testPayload->payload, $upperHeaders);
+
+        $this->assertEquals(2432232315, $json['test']);
+    }
+
+    public function testVerifyWithMixedCaseHeaders()
+    {
+        $testPayload = new TestPayload(time());
+        $mixedHeaders = [
+            'Webhook-Id'        => $testPayload->header['webhook-id'],
+            'Webhook-Timestamp' => $testPayload->header['webhook-timestamp'],
+            'Webhook-Signature' => $testPayload->header['webhook-signature'],
+        ];
+
+        $wh = new \StandardWebhooks\Webhook($testPayload->secret);
+        $json = $wh->verify($testPayload->payload, $mixedHeaders);
+
+        $this->assertEquals(2432232315, $json['test']);
+    }
+
     public function testRejectsEmptySecret()
     {
         $this->expectException(\StandardWebhooks\Exception\EmptyWebhookSecretException::class);

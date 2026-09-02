@@ -176,6 +176,32 @@ describe StandardWebhooks::Webhook do
     expect(json["test"]).to eq(2432232314)
   end
 
+  it "valid uppercase headers are accepted" do
+    testPayload = TestPayload.new
+    upperHeaders = {
+      "WEBHOOK-ID" => testPayload.headers["webhook-id"],
+      "WEBHOOK-TIMESTAMP" => testPayload.headers["webhook-timestamp"],
+      "WEBHOOK-SIGNATURE" => testPayload.headers["webhook-signature"]
+    }
+
+    wh = StandardWebhooks::Webhook.new(testPayload.secret)
+    json = wh.verify(testPayload.payload, upperHeaders)
+    expect(json["test"]).to eq(2432232314)
+  end
+
+  it "valid mixed-case headers are accepted" do
+    testPayload = TestPayload.new
+    mixedHeaders = {
+      "Webhook-Id" => testPayload.headers["webhook-id"],
+      "Webhook-Timestamp" => testPayload.headers["webhook-timestamp"],
+      "Webhook-Signature" => testPayload.headers["webhook-signature"]
+    }
+
+    wh = StandardWebhooks::Webhook.new(testPayload.secret)
+    json = wh.verify(testPayload.payload, mixedHeaders)
+    expect(json["test"]).to eq(2432232314)
+  end
+
   it "sign function works" do
     key = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
     msg_id = "msg_p5jXN8AQM9LWM0D4loKWxJek"
