@@ -86,7 +86,19 @@ class Webhook:
         raise WebhookVerificationError("No matching signature found")
 
     def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
-        timestamp_str = str(floor(timestamp.replace(tzinfo=timezone.utc).timestamp()))
+        """
+        Sign the given payload and return the versioned signature string.
+
+        Args:
+            msg_id: The unique message id (sent as the `webhook-id` header).
+            timestamp: The message timestamp (sent as the `webhook-timestamp` header).
+                Timezone-aware datetimes are converted to their POSIX timestamp, so any
+                timezone can be used. Naive datetimes are interpreted as UTC.
+            data: The raw payload string.
+        """
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        timestamp_str = str(floor(timestamp.timestamp()))
         to_sign = f"{msg_id}.{timestamp_str}.{data}".encode()
         signature = hmac_data(self._whsecret, to_sign)
         return f"v1,{base64.b64encode(signature).decode('utf-8')}"
