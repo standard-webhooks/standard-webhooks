@@ -37,6 +37,25 @@ puts payload['type']
 Pass the raw body exactly as received. Verifying a parsed-and-reserialized JSON body
 can fail because the signature is computed over the original bytes.
 
+## Responding to a challenge-response check
+
+To support the [challenge-response check](../../spec/extensions/crc.md) extension,
+use `#challenge_response` when the request includes a `webhook-challenge` header:
+
+```ruby
+challenge = request_headers['webhook-challenge']
+if challenge
+	response_headers['webhook-challenge-response'] = webhook.challenge_response(challenge)
+end
+```
+
+Producers can verify the response with `#verify_challenge_response`, which raises
+`StandardWebhooks::WebhookVerificationError` if it doesn't match:
+
+```ruby
+webhook.verify_challenge_response(challenge, response_headers['webhook-challenge-response'])
+```
+
 ## Rails example
 
 ```ruby

@@ -1,6 +1,7 @@
 package standardwebhooks_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -270,5 +271,42 @@ func TestWebhookNewRawNoEmptyPrefixedSecrets(t *testing.T) {
 	_, err := standardwebhooks.NewWebhookRaw([]byte(""))
 	if err == nil {
 		t.Fatal("Expected error")
+	}
+}
+
+func TestChallengeResponse(t *testing.T) {
+	challenge := "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+	expected := "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+
+	wh, err := standardwebhooks.NewWebhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := wh.ChallengeResponse(challenge)
+	if response != expected {
+		t.Fatalf("challenge response %s != expected challenge response %s", response, expected)
+	}
+}
+
+func TestVerifyChallengeResponse(t *testing.T) {
+	challenge := "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+	header := "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+
+	wh, err := standardwebhooks.NewWebhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := wh.VerifyChallengeResponse(challenge, header); err != nil {
+		t.Fatalf("expected challenge response to be valid, got %s", err)
+	}
+
+	if err := wh.VerifyChallengeResponse(challenge, "v2,abc "+header); !errors.Is(err, standardwebhooks.ErrNoMatchingSignature) {
+		t.Fatalf("expected %s for a list of signatures, got %v", standardwebhooks.ErrNoMatchingSignature, err)
+	}
+
+	if err := wh.VerifyChallengeResponse("wrong-challenge", header); !errors.Is(err, standardwebhooks.ErrNoMatchingSignature) {
+		t.Fatalf("expected %s, got %v", standardwebhooks.ErrNoMatchingSignature, err)
 	}
 }

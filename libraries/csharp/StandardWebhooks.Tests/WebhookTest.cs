@@ -220,5 +220,25 @@ namespace StandardWebhooks.Tests
             var signature = wh.Sign(msgId, timestamp, payload);
             Assert.Equal(signature, expected);
         }
+
+        [Fact]
+        public void verifyChallengeResponseWorks()
+        {
+            var wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+            var response = wh.ChallengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+            Assert.Equal("v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=", response);
+        }
+
+        [Fact]
+        public void verifyChallengeResponseVerifiesWorks()
+        {
+            var wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+            var challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
+            var header = "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=";
+
+            wh.VerifyChallengeResponse(challenge, header);
+            Assert.Throws<WebhookVerificationException>(() => wh.VerifyChallengeResponse(challenge, $"v2,abc {header}"));
+            Assert.Throws<WebhookVerificationException>(() => wh.VerifyChallengeResponse("wrong", header));
+        }
     }
 }

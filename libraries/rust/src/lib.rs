@@ -53,10 +53,13 @@ impl Debug for Webhook {
 pub const HEADER_WEBHOOK_ID: &str = "webhook-id";
 pub const HEADER_WEBHOOK_SIGNATURE: &str = "webhook-signature";
 pub const HEADER_WEBHOOK_TIMESTAMP: &str = "webhook-timestamp";
+pub const HEADER_WEBHOOK_CHALLENGE: &str = "webhook-challenge";
+pub const HEADER_WEBHOOK_CHALLENGE_RESPONSE: &str = "webhook-challenge-response";
 
 const PREFIX: &str = "whsec_";
 const TOLERANCE_IN_SECONDS: i64 = 5 * 60;
 const SIGNATURE_VERSION: &str = "v1";
+const CRC_KEY_LABEL: &[u8] = b"crc-v1";
 
 impl Webhook {
     pub fn new(secret: &str) -> Result<Self, WebhookError> {
@@ -106,14 +109,7 @@ impl Webhook {
 
         msg_signature
             .split(' ')
-            .any(|x| {
-                (x.len() == expected_signature.len())
-                    && (x
-                        .bytes()
-                        .zip(expected_signature.bytes())
-                        .fold(0, |acc, (a, b)| acc | (a ^ b))
-                        == 0)
-            })
+            .any(|x| Self::secure_compare(x, &expected_signature))
             .then_some(())
             .ok_or(WebhookError::InvalidSignature)
     }
@@ -130,6 +126,38 @@ impl Webhook {
         let encoded = base64::engine::general_purpose::STANDARD.encode(signed);
 
         Ok(format!("{SIGNATURE_VERSION},{encoded}"))
+    }
+
+    fn secure_compare(a: &str, b: &str) -> bool {
+        (a.len() == b.len())
+            && (a
+                .bytes()
+                .zip(b.bytes())
+                .fold(0, |acc, (x, y)| acc | (x ^ y))
+                == 0)
+    }
+
+    /// Calculate the response to a challenge-response check (CRC)
+    ///
+    /// Takes the value of the `webhook-challenge` header and returns the value for the
+    /// `webhook-challenge-response` header.
+    pub fn challenge_response(&self, challenge: &str) -> String {
+        let crc_key = hmac_sha256::HMAC::mac(CRC_KEY_LABEL, &self.key);
+        let signed = hmac_sha256::HMAC::mac(challenge.as_bytes(), crc_key);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(signed);
+
+        format!("{SIGNATURE_VERSION},{encoded}")
+    }
+
+    /// Verify the value of the `webhook-challenge-response` header against the challenge sent
+    pub fn verify_challenge_response(
+        &self,
+        challenge: &str,
+        header: &str,
+    ) -> Result<(), WebhookError> {
+        Self::secure_compare(header, &self.challenge_response(challenge))
+            .then_some(())
+            .ok_or(WebhookError::InvalidSignature)
     }
 
     fn get_header<'a>(
@@ -191,6 +219,32 @@ mod tests {
                 br#"{"email":"test@example.com","username":"test_user"}"#
             )
             .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_challenge_response() {
+        let wh = Webhook::new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw").unwrap();
+        assert_eq!(
+            "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=".to_owned(),
+            wh.challenge_response("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=")
+        );
+    }
+
+    #[test]
+    fn test_verify_challenge_response() {
+        let wh = Webhook::new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw").unwrap();
+        let challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
+        let header = "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=";
+
+        wh.verify_challenge_response(challenge, header).unwrap();
+        assert_eq!(
+            Err(WebhookError::InvalidSignature),
+            wh.verify_challenge_response(challenge, &format!("v2,abc {header}"))
+        );
+        assert_eq!(
+            Err(WebhookError::InvalidSignature),
+            wh.verify_challenge_response("wrong-challenge", header)
         );
     }
 

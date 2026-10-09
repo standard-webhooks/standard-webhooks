@@ -13,6 +13,16 @@ wh, err := standardwebhooks.NewWebhook(base64Secret)
 err = wh.Verify(webhookPayload, webhookHeaders)
 ```
 
+Responding to a challenge-response check (CRC):
+
+```go
+if challenge := r.Header.Get(standardwebhooks.HeaderWebhookChallenge); challenge != "" {
+    w.Header().Set(standardwebhooks.HeaderWebhookChallengeResponse, wh.ChallengeResponse(challenge))
+}
+```
+
+Producers can verify the `webhook-challenge-response` header with `wh.VerifyChallengeResponse(challenge, header)`.
+
 # Development
 
 ## Requirements
