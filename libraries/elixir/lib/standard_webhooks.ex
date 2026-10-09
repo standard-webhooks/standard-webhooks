@@ -13,10 +13,6 @@ defmodule StandardWebhooks do
   Verify a Standard Webhook given a payload, Plug.Conn and secret
   """
   @spec verify(map(), Plug.Conn.t(), binary()) :: boolean()
-  def verify(payload, conn, @secret_prefix <> encoded_secret) do
-    verify_signature(payload, conn, Base.decode64!(encoded_secret))
-  end
-
   def verify(payload, conn, secret) do
     verify_signature(payload, conn, secret)
   end
@@ -97,14 +93,12 @@ defmodule StandardWebhooks do
     raise ArgumentError, message: "Secret must be a string"
   end
 
-  def sign(_id, _timestamp, _payload, secret) when secret == "" do
-    raise ArgumentError, message: "Secret must not be empty"
+  def sign(id, timestamp, payload, @secret_prefix <> secret) do
+    sign(id, timestamp, payload, secret)
   end
 
-  def sign(id, timestamp, payload, @secret_prefix <> secret) do
-    decoded_secret = Base.decode64!(secret)
-
-    sign_with_version(id, timestamp, payload, decoded_secret)
+  def sign(_id, _timestamp, _payload, secret) when secret == "" do
+    raise ArgumentError, message: "Secret must not be empty"
   end
 
   def sign(id, timestamp, payload, secret) do
@@ -128,12 +122,6 @@ defmodule StandardWebhooks do
   end
 
   defp sign_and_encode(to_sign, secret) do
-    secret =
-      case String.split(secret, @secret_prefix) do
-        ["", secret] -> secret
-        [secret] when is_binary(secret) -> secret
-      end
-
     :crypto.mac(:hmac, :sha256, Base.decode64!(secret), to_sign)
     |> Base.encode64()
     |> String.trim()
