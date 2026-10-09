@@ -170,6 +170,48 @@ defmodule StandardWebhooksTest do
     end
   end
 
+  describe "challenge_response/2" do
+    @challenge "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+    @challenge_response "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+
+    test "returns valid response when secret" do
+      assert @challenge_response == StandardWebhooks.challenge_response(@challenge, @secret)
+    end
+
+    test "returns valid response when prefixed secret" do
+      assert @challenge_response ==
+               StandardWebhooks.challenge_response(@challenge, @secret_prefix <> @secret)
+    end
+
+    test "raises error when secret is empty" do
+      assert_raise ArgumentError, "Secret must not be empty", fn ->
+        StandardWebhooks.challenge_response(@challenge, "")
+      end
+    end
+  end
+
+  describe "verify_challenge_response/3" do
+    test "returns true when valid response" do
+      assert StandardWebhooks.verify_challenge_response(@challenge, @challenge_response, @secret)
+    end
+
+    test "returns false when a list of signatures" do
+      refute StandardWebhooks.verify_challenge_response(
+               @challenge,
+               "v2,abc " <> @challenge_response,
+               @secret
+             )
+    end
+
+    test "returns false when wrong challenge" do
+      refute StandardWebhooks.verify_challenge_response(
+               "wrong-challenge",
+               @challenge_response,
+               @secret
+             )
+    end
+  end
+
   defp setup_webhook(signature) do
     conn(:post, "/_incoming", @payload)
     |> put_req_header("webhook-id", @id)

@@ -371,3 +371,38 @@ def test_sign_function_rejects_non_bytes_payload() -> None:
     for payload in (5, [1, 2], {"test": 1}, None, memoryview(array.array("H", [1, 2]))):
         with pytest.raises(TypeError):
             wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=t.cast(t.Any, payload))
+
+
+def test_challenge_response() -> None:
+    wh = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    response = wh.challenge_response("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=")
+    assert response == "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+
+
+def test_verify_challenge_response() -> None:
+    wh = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    wh.verify_challenge_response(
+        "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=", "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+    )
+
+
+def test_verify_challenge_response_wrong_challenge() -> None:
+    wh = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    with pytest.raises(WebhookVerificationError):
+        wh.verify_challenge_response(
+            "1njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=", "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+        )
+
+
+def test_verify_challenge_response_rejects_lists() -> None:
+    wh = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    with pytest.raises(WebhookVerificationError):
+        wh.verify_challenge_response(
+            "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=", "v2,abc v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+        )
+
+
+def test_challenge_response_depends_on_secret() -> None:
+    wh = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSx")
+    response = wh.challenge_response("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=")
+    assert response != "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="

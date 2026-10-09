@@ -15,6 +15,20 @@ wh.verify(webhook_payload, webhook_headers)
 Pass it as `bytes` to verify the bytes as sent, including bodies that aren't valid UTF-8. A
 `str` is verified as its UTF-8 encoding.
 
+Responding to a [challenge-response check](../../spec/extensions/crc.md):
+
+```python
+challenge = webhook_headers.get("webhook-challenge")
+if challenge:
+    response_headers["webhook-challenge-response"] = wh.challenge_response(challenge)
+```
+
+Verifying the response as a producer (raises `WebhookVerificationError` if it doesn't match):
+
+```python
+wh.verify_challenge_response(challenge, response_headers["webhook-challenge-response"])
+```
+
 # Development
 
 ## Requirements

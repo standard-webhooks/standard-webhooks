@@ -98,5 +98,45 @@ namespace StandardWebhooks
                 return $"v1,{signature}";
             }
         }
+
+        /// <summary>
+        /// Calculates the response to a challenge-response check (CRC).
+        /// </summary>
+        /// <param name="challenge">The value of the webhook-challenge request header.</param>
+        /// <returns>The value for the webhook-challenge-response response header.</returns>
+        public string ChallengeResponse(string challenge)
+        {
+            byte[] crcKey;
+            using (var hmac = new HMACSHA256(this.key))
+            {
+                crcKey = hmac.ComputeHash(SafeUTF8Encoding.GetBytes("crc-v1"));
+            }
+            using (var hmac = new HMACSHA256(crcKey))
+            {
+                var hash = hmac.ComputeHash(SafeUTF8Encoding.GetBytes(challenge));
+                var signature = Convert.ToBase64String(hash);
+                return $"v1,{signature}";
+            }
+        }
+
+        /// <summary>
+        /// Verifies the response to a challenge-response check (CRC).
+        /// </summary>
+        /// <param name="challenge">The challenge sent in the webhook-challenge request header.</param>
+        /// <param name="header">The value of the webhook-challenge-response response header.</param>
+        public void VerifyChallengeResponse(string challenge, string header)
+        {
+            if (String.IsNullOrEmpty(challenge) || String.IsNullOrEmpty(header))
+            {
+                throw new WebhookVerificationException("Missing challenge response");
+            }
+
+            var expectedSignature = this.ChallengeResponse(challenge);
+
+            if (!Utils.SecureCompare(expectedSignature, header))
+            {
+                throw new WebhookVerificationException("No matching signature found");
+            }
+        }
     }
 }

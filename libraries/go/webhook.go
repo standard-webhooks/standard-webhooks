@@ -17,7 +17,11 @@ const (
 	HeaderWebhookSignature string = "webhook-signature"
 	HeaderWebhookTimestamp string = "webhook-timestamp"
 
+	HeaderWebhookChallenge         string = "webhook-challenge"
+	HeaderWebhookChallengeResponse string = "webhook-challenge-response"
+
 	webhookSecretPrefix string = "whsec_"
+	crcKeyLabel         string = "crc-v1"
 )
 
 var base64enc = base64.StdEncoding
@@ -127,6 +131,38 @@ func (wh *Webhook) sign(msgId string, timestamp time.Time, payload []byte) (vers
 	base64enc.Encode(sig, h.Sum(nil))
 
 	return "v1", sig, nil
+}
+
+// ChallengeResponse calculates the response to a challenge-response check (CRC).
+//
+// Takes the value of the `webhook-challenge` header and returns the value
+// for the `webhook-challenge-response` header.
+func (wh *Webhook) ChallengeResponse(challenge string) string {
+	return fmt.Sprintf("v1,%s", wh.signChallenge(challenge))
+}
+
+// VerifyChallengeResponse validates the value of the `webhook-challenge-response`
+// header against the challenge that was sent.
+//
+// Returns an error if the signature doesn't match.
+func (wh *Webhook) VerifyChallengeResponse(challenge string, header string) error {
+	if hmac.Equal([]byte(header), []byte(wh.ChallengeResponse(challenge))) {
+		return nil
+	}
+
+	return fmt.Errorf("unable to verify challenge response, err: %w", ErrNoMatchingSignature)
+}
+
+func (wh *Webhook) signChallenge(challenge string) []byte {
+	crcKey := hmac.New(sha256.New, wh.key)
+	crcKey.Write([]byte(crcKeyLabel))
+
+	h := hmac.New(sha256.New, crcKey.Sum(nil))
+	h.Write([]byte(challenge))
+	sig := make([]byte, base64enc.EncodedLen(h.Size()))
+	base64enc.Encode(sig, h.Sum(nil))
+
+	return sig
 }
 
 func parseTimestampHeader(timestampHeader string) (time.Time, error) {

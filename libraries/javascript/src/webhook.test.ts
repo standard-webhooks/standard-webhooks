@@ -395,3 +395,48 @@ test("empty Uint8Array payload returns undefined", () => {
 
   assert.equal(wh.verify(payload, signedHeader(wh, payload)), undefined);
 });
+
+test("challenge response matches test vector", () => {
+  const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  const result = wh.challengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+  assert.equal(result, "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=");
+});
+
+test("verify challenge response accepts test vector", () => {
+  const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  wh.verifyChallengeResponse(
+    "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
+    "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+  );
+});
+
+test("verify challenge response rejects wrong challenge", () => {
+  const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  assert.throws(() => {
+    wh.verifyChallengeResponse(
+      "1njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
+      "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+    );
+  }, WebhookVerificationError);
+});
+
+test("verify challenge response rejects lists", () => {
+  const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  assert.throws(() => {
+    wh.verifyChallengeResponse(
+      "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
+      "v2,abc v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+    );
+  }, WebhookVerificationError);
+});
+
+test("challenge response depends on the secret", () => {
+  const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSx");
+
+  const result = wh.challengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+  assert.notEqual(result, "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=");
+});

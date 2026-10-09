@@ -11,6 +11,23 @@ var wh = new Webhook(base64Secret);
 wh.Verify(webhookPayload, webhookHeaders);
 ```
 
+Responding to a [challenge-response check (CRC)](../../spec/extensions/crc.md):
+
+```cs
+var challenge = webhookHeaders.Get("webhook-challenge");
+if (challenge != null)
+{
+    response.Headers["webhook-challenge-response"] = wh.ChallengeResponse(challenge);
+}
+```
+
+Verifying a challenge response (for producers):
+
+```cs
+// Throws WebhookVerificationException if the response is invalid
+wh.VerifyChallengeResponse(challenge, responseHeader);
+```
+
 # Development
 
 ## Requirements

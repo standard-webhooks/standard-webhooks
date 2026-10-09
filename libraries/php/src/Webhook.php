@@ -67,6 +67,39 @@ class Webhook
         return "v1,{$signature}";
     }
 
+    /**
+     * Calculate the response to a challenge-response check (CRC).
+     *
+     * @param string $challenge The value of the webhook-challenge request header
+     * @return string The value for the webhook-challenge-response response header
+     */
+    public function challengeResponse($challenge)
+    {
+        $crcKey = hash_hmac('sha256', 'crc-v1', $this->secret, true);
+        $signature = base64_encode(hash_hmac('sha256', $challenge, $crcKey, true));
+        return "v1,{$signature}";
+    }
+
+    /**
+     * Verify the response to a challenge-response check (CRC).
+     *
+     * @param string $challenge The challenge sent in the webhook-challenge request header
+     * @param string $header The value of the webhook-challenge-response response header
+     * @throws Exception\WebhookVerificationException if verification fails
+     */
+    public function verifyChallengeResponse($challenge, $header)
+    {
+        if (empty($challenge) || empty($header)) {
+            throw new Exception\WebhookVerificationException("Missing challenge response");
+        }
+
+        $expectedSignature = $this->challengeResponse($challenge);
+
+        if (!hash_equals($expectedSignature, $header)) {
+            throw new Exception\WebhookVerificationException("No matching signature found");
+        }
+    }
+
     private function verifyTimestamp($timestampHeader)
     {
         $now = time();
