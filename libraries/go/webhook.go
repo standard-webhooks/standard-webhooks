@@ -99,27 +99,13 @@ func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance 
 		}
 	}
 
-	_, expectedSignature, err := wh.sign(msgId, timestamp, payload)
+	expectedSignature, err := wh.Sign(msgId, timestamp, payload)
 	if err != nil {
 		return fmt.Errorf("unable to verify payload, err: %w", err)
 	}
 
-	passedSignatures := strings.Split(msgSignature, " ")
-	for _, versionedSignature := range passedSignatures {
-		sigParts := strings.Split(versionedSignature, ",")
-		if len(sigParts) < 2 {
-			continue
-		}
-
-		version := sigParts[0]
-
-		if version != "v1" {
-			continue
-		}
-
-		signature := []byte(sigParts[1])
-
-		if hmac.Equal(signature, expectedSignature) {
+	for _, versionedSignature := range strings.Split(msgSignature, " ") {
+		if hmac.Equal([]byte(versionedSignature), []byte(expectedSignature)) {
 			return nil
 		}
 	}

@@ -160,6 +160,42 @@ namespace StandardWebhooks.Tests
         }
 
         [Fact]
+        public void TestEntryWithoutCommaFollowedByValidSignatureIsValid()
+        {
+            var testPayload = new TestPayload(DateTimeOffset.UtcNow);
+            var validSignature = testPayload.headers.Get(TestPayload.UNBRANDED_SIGNATURE_HEADER_KEY);
+            testPayload.headers.Set(TestPayload.UNBRANDED_SIGNATURE_HEADER_KEY, "invalid " + validSignature);
+
+            var wh = new Webhook(testPayload.secret);
+
+            wh.Verify(testPayload.payload, testPayload.headers);
+        }
+
+        [Fact]
+        public void TestMalformedEntryFollowedByValidSignatureIsValid()
+        {
+            var testPayload = new TestPayload(DateTimeOffset.UtcNow);
+            var validSignature = testPayload.headers.Get(TestPayload.UNBRANDED_SIGNATURE_HEADER_KEY);
+            testPayload.headers.Set(TestPayload.UNBRANDED_SIGNATURE_HEADER_KEY, "v1, v1,,, " + validSignature);
+
+            var wh = new Webhook(testPayload.secret);
+
+            wh.Verify(testPayload.payload, testPayload.headers);
+        }
+
+        [Fact]
+        public void TestCorrectSignatureWithDifferentVersionThrowsException()
+        {
+            var testPayload = new TestPayload(DateTimeOffset.UtcNow);
+            var validSignature = testPayload.headers.Get(TestPayload.UNBRANDED_SIGNATURE_HEADER_KEY);
+            testPayload.headers.Set(TestPayload.UNBRANDED_SIGNATURE_HEADER_KEY, "v2," + validSignature.Split(',')[1]);
+
+            var wh = new Webhook(testPayload.secret);
+
+            Assert.Throws<WebhookVerificationException>(() => wh.Verify(testPayload.payload, testPayload.headers));
+        }
+
+        [Fact]
         public void TestSivnatureVerificationWorksWithoutPrefix()
         {
             var testPayload = new TestPayload(DateTimeOffset.UtcNow);

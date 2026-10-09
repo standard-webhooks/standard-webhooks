@@ -111,6 +111,14 @@ public class TestScenario {
 	}
 
 	/**
+	 * Sets the webhook-signature header to the given value. Returns this for method chaining.
+	 */
+	public TestScenario withSignatureHeader(final String header) {
+		this.headerMap.put("webhook-signature", new ArrayList<>(Arrays.asList(header)));
+		return this;
+	}
+
+	/**
 	 * Removes the webhook-id header. Returns this for method chaining.
 	 */
 	public TestScenario withMissingId() {

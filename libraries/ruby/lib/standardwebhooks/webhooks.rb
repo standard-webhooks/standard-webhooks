@@ -34,23 +34,18 @@ module StandardWebhooks
 
       verify_timestamp(msg_timestamp)
 
-      _, signature = sign(msg_id, msg_timestamp, payload).split(",", 2)
+      signature = sign(msg_id, msg_timestamp, payload)
 
       passed_signatures = msg_signature.split(" ")
-
-      passed_signatures.each do |versioned_signature|
-        version, expected_signature = versioned_signature.split(",", 2)
-
-        if version != "v1"
-          next
-        end
-
-        if ::StandardWebhooks.secure_compare(signature, expected_signature)
-          return JSON.parse(payload)
-        end
+      matched = passed_signatures.any? do |versioned_signature|
+        ::StandardWebhooks.secure_compare(versioned_signature, signature)
       end
 
-      raise WebhookVerificationError, "No matching signature found"
+      unless matched
+        raise WebhookVerificationError, "No matching signature found"
+      end
+
+      JSON.parse(payload)
     end
 
     def sign(msg_id, timestamp, payload)

@@ -111,6 +111,36 @@ defmodule StandardWebhooksTest do
       assert false == StandardWebhooks.verify(@payload, conn, @secret)
     end
 
+    test "return true when multiple signatures and the valid one is not last", %{
+      signature: signature
+    } do
+      conn = setup_webhook("#{signature} v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=")
+
+      assert StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return true when entry without a comma followed by valid signature", %{
+      signature: signature
+    } do
+      conn = setup_webhook("v1 #{signature}")
+
+      assert StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return true when malformed entries followed by valid signature", %{
+      signature: signature
+    } do
+      conn = setup_webhook(",,, v1,not,base64  #{signature}")
+
+      assert StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return false when valid signature with another version", %{signature: signature} do
+      conn = setup_webhook(String.replace(signature, "v1,", "v2,", global: false))
+
+      assert false == StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
     test "raises error when missing webhook header", %{signature: signature} do
       connection =
         conn(:post, "/_incoming", @payload)
