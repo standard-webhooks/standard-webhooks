@@ -57,6 +57,38 @@ public class WebhookTest {
 	}
 
 	@Test
+	public void verifyEntryWithoutCommaFollowedByValidSignatureIsValid() throws WebhookVerificationException, EmptyWebhookSecretException {
+		TestScenario scenario = TestScenario.valid();
+		scenario.withSignatureHeader("invalid " + scenario.signatureHeader());
+
+		Webhook webhook = new Webhook(scenario.secret);
+		webhook.verify(scenario.payload, scenario.headersAsMap());
+	}
+
+	@Test
+	public void verifyMalformedEntryFollowedByValidSignatureIsValid() throws WebhookVerificationException, EmptyWebhookSecretException {
+		TestScenario scenario = TestScenario.valid();
+		scenario.withSignatureHeader("v1, v1,,, " + scenario.signatureHeader());
+
+		Webhook webhook = new Webhook(scenario.secret);
+		webhook.verify(scenario.payload, scenario.headersAsMap());
+	}
+
+	@Test
+	public void verifyCorrectSignatureWithDifferentVersionThrowsException() {
+		TestScenario scenario = TestScenario.valid();
+		scenario.withSignatureHeader("v2," + scenario.signature);
+		assertThrows(WebhookVerificationException.class, verify(scenario));
+	}
+
+	@Test
+	public void verifyCorrectSignatureWithTrailingDataThrowsException() {
+		TestScenario scenario = TestScenario.valid();
+		scenario.withSignatureHeader(scenario.signatureHeader() + ",extra");
+		assertThrows(WebhookVerificationException.class, verify(scenario));
+	}
+
+	@Test
 	public void verifyMissingIdThrowsException() {
 		TestScenario scenario = TestScenario.valid().withMissingId();
 		assertThrows(WebhookVerificationException.class, verify(scenario));

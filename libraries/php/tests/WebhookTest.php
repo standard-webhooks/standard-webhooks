@@ -127,6 +127,41 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $wh->verify($testPayload->payload, $testPayload->header);
     }
 
+    public function testEntryWithoutCommaFollowedByValidSignatureIsValid()
+    {
+        $this->expectNotToPerformAssertions();
+
+        $testPayload = new TestPayload(time());
+        $testPayload->header['webhook-signature'] = "invalid " . $testPayload->header['webhook-signature'];
+
+        $wh = new \StandardWebhooks\Webhook($testPayload->secret);
+        $wh->verify($testPayload->payload, $testPayload->header);
+    }
+
+    public function testMalformedEntryFollowedByValidSignatureIsValid()
+    {
+        $this->expectNotToPerformAssertions();
+
+        $testPayload = new TestPayload(time());
+        $testPayload->header['webhook-signature'] = "v1, v1,,, " . $testPayload->header['webhook-signature'];
+
+        $wh = new \StandardWebhooks\Webhook($testPayload->secret);
+        $wh->verify($testPayload->payload, $testPayload->header);
+    }
+
+    public function testCorrectSignatureWithDifferentVersionThrowsException()
+    {
+        $this->expectException(\StandardWebhooks\Exception\WebhookVerificationException::class);
+        $this->expectExceptionMessage("No matching signature found");
+
+        $testPayload = new TestPayload(time());
+        $signature = explode(',', $testPayload->header['webhook-signature'], 2)[1];
+        $testPayload->header['webhook-signature'] = "v2,{$signature}";
+
+        $wh = new \StandardWebhooks\Webhook($testPayload->secret);
+        $wh->verify($testPayload->payload, $testPayload->header);
+    }
+
     public function testSignatureVerificationWithAndWithoutPrefix()
     {
         $this->expectNotToPerformAssertions();
