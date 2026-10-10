@@ -337,3 +337,11 @@ The rest of the recommendations and requirements outlined in this document can t
 While migrating the payload is optional, and you can get most of the benefits of standard webhooks compatibility even without doing that. However, doing so will enable you to utilize even more of the standard webhooks ecosystem, and is therefore recommended.
 
 There are a few strategies for migrating the payloads, each with its own advantages and disadvantages. The first is adding data to existing payloads with the wanted format. This approach is easy and backwards compatible, but it may lead to confusion, and it will also lead to redundancy in data. The second is a slightly better variation, where you still duplicate the data, but only for endpoints created before the switch-over date. The last alternative is to create a new event type for each of the existing ones, and have them conform to the new format.
+
+## Extensions
+
+Extensions are optional additions to the specification. Implementations don't need to support them in order to be compatible with Standard Webhooks, but implementations that do support them should follow them exactly as described, so that they remain interoperable.
+
+Each extension is described in its own document:
+
+- [Challenge-response check (CRC)](./extensions/crc.md): lets producers confirm that an endpoint has opted in to receiving webhooks, and that it holds the correct signing secret, before delivering webhooks to it.

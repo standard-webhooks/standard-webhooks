@@ -70,26 +70,48 @@ class Webhook:
 
         timestamp = self.__verify_timestamp(msg_timestamp)
 
-        expected_sig = base64.b64decode(self.sign(msg_id=msg_id, timestamp=timestamp, data=data).split(",")[1])
+        expected_sig = self.sign(msg_id=msg_id, timestamp=timestamp, data=data).encode()
         passed_sigs = msg_signature.split(" ")
-        for versioned_sig in passed_sigs:
-            (version, signature) = versioned_sig.split(",")
-            if version != "v1":
-                continue
-            sig_bytes = base64.b64decode(signature)
-            if hmac.compare_digest(expected_sig, sig_bytes):
-                if json_parse:
-                    return json.loads(data)
-                else:
-                    return
+        if not any(hmac.compare_digest(expected_sig, versioned_sig.encode()) for versioned_sig in passed_sigs):
+            raise WebhookVerificationError("No matching signature found")
 
-        raise WebhookVerificationError("No matching signature found")
+        if json_parse:
+            return json.loads(data)
 
     def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
         timestamp_str = str(floor(timestamp.replace(tzinfo=timezone.utc).timestamp()))
         to_sign = f"{msg_id}.{timestamp_str}.{data}".encode()
         signature = hmac_data(self._whsecret, to_sign)
         return f"v1,{base64.b64encode(signature).decode('utf-8')}"
+
+    def challenge_response(self, challenge: str) -> str:
+        """
+        Calculate the response to a challenge-response check (CRC).
+
+        Args:
+            challenge (str): The value of the `webhook-challenge` request header
+
+        Returns:
+            The value for the `webhook-challenge-response` response header.
+        """
+        crc_key = hmac_data(self._whsecret, b"crc-v1")
+        signature = hmac_data(crc_key, challenge.encode())
+        return f"v1,{base64.b64encode(signature).decode('utf-8')}"
+
+    def verify_challenge_response(self, challenge: str, header: str) -> None:
+        """
+        Verify the response to a challenge-response check (CRC).
+
+        Args:
+            challenge (str): The challenge sent in the `webhook-challenge` request header
+            header (str): The value of the `webhook-challenge-response` response header
+
+        Raises:
+            WebhookVerificationError if no matching signature is found.
+        """
+        expected_sig = self.challenge_response(challenge)
+        if not hmac.compare_digest(expected_sig.encode(), header.encode()):
+            raise WebhookVerificationError("No matching signature found")
 
     def __verify_timestamp(self, timestamp_header: str) -> datetime:
         webhook_tolerance = timedelta(minutes=5)

@@ -8,15 +8,12 @@ defmodule StandardWebhooks do
   @secret_prefix "whsec_"
   @signature_identifier "v1"
   @tolerance 5 * 60
+  @crc_key_label "crc-v1"
 
   @doc """
   Verify a Standard Webhook given a payload, Plug.Conn and secret
   """
   @spec verify(map(), Plug.Conn.t(), binary()) :: boolean()
-  def verify(payload, conn, @secret_prefix <> encoded_secret) do
-    verify_signature(payload, conn, Base.decode64!(encoded_secret))
-  end
-
   def verify(payload, conn, secret) do
     verify_signature(payload, conn, secret)
   end
@@ -24,9 +21,7 @@ defmodule StandardWebhooks do
   defp verify_signature(payload, conn, secret) do
     {id, timestamp, header_signatures} = get_req_headers(conn)
 
-    signature =
-      sign(id, String.to_integer(timestamp), payload, secret)
-      |> split_signature_from_identifier()
+    signature = sign(id, String.to_integer(timestamp), payload, secret)
 
     valid_signatures?(header_signatures, signature)
   end
@@ -42,18 +37,10 @@ defmodule StandardWebhooks do
     end
   end
 
-  defp valid_signatures?([], _signature), do: false
-
-  defp valid_signatures?(signatures, signature) when signature >= 1 do
-    signatures
-    |> Enum.map(&split_signature_from_identifier/1)
+  defp valid_signatures?(header_signatures, signature) do
+    header_signatures
+    |> Enum.flat_map(&String.split(&1, " "))
     |> Enum.any?(&Plug.Crypto.secure_compare(&1, signature))
-  end
-
-  defp split_signature_from_identifier(signature) do
-    signature
-    |> String.split(",")
-    |> List.last()
   end
 
   def validate_timestamp(timestamp) do
@@ -97,14 +84,12 @@ defmodule StandardWebhooks do
     raise ArgumentError, message: "Secret must be a string"
   end
 
-  def sign(_id, _timestamp, _payload, secret) when secret == "" do
-    raise ArgumentError, message: "Secret must not be empty"
+  def sign(id, timestamp, payload, @secret_prefix <> secret) do
+    sign(id, timestamp, payload, secret)
   end
 
-  def sign(id, timestamp, payload, @secret_prefix <> secret) do
-    decoded_secret = Base.decode64!(secret)
-
-    sign_with_version(id, timestamp, payload, decoded_secret)
+  def sign(_id, _timestamp, _payload, secret) when secret == "" do
+    raise ArgumentError, message: "Secret must not be empty"
   end
 
   def sign(id, timestamp, payload, secret) do
@@ -121,6 +106,59 @@ defmodule StandardWebhooks do
     "#{@signature_identifier},#{signature}"
   end
 
+  @doc """
+  Calculate the response to a challenge-response check (CRC) given a challenge and secret
+
+  Takes the value of the `webhook-challenge` header and returns the value for the
+  `webhook-challenge-response` header.
+  """
+  @spec challenge_response(challenge :: String.t(), secret :: binary()) :: String.t()
+  def challenge_response(challenge, _secret) when not is_binary(challenge) do
+    raise ArgumentError, message: "Challenge must be a string"
+  end
+
+  def challenge_response(_challenge, secret) when not is_binary(secret) do
+    raise ArgumentError, message: "Secret must be a string"
+  end
+
+  def challenge_response(challenge, @secret_prefix <> secret) do
+    challenge_response(challenge, secret)
+  end
+
+  def challenge_response(_challenge, secret) when secret == "" do
+    raise ArgumentError, message: "Secret must not be empty"
+  end
+
+  def challenge_response(challenge, secret) do
+    crc_key = :crypto.mac(:hmac, :sha256, Base.decode64!(secret), @crc_key_label)
+
+    signature =
+      :crypto.mac(:hmac, :sha256, crc_key, challenge)
+      |> Base.encode64()
+
+    "#{@signature_identifier},#{signature}"
+  end
+
+  @doc """
+  Verify the response to a challenge-response check (CRC) given a challenge, response and secret
+
+  Takes the challenge that was sent and the value of the `webhook-challenge-response` header.
+  """
+  @spec verify_challenge_response(
+          challenge :: String.t(),
+          header :: String.t(),
+          secret :: binary()
+        ) :: boolean()
+  def verify_challenge_response(_challenge, header, _secret) when not is_binary(header) do
+    raise ArgumentError, message: "Challenge response must be a string"
+  end
+
+  def verify_challenge_response(challenge, header, secret) do
+    signature = challenge_response(challenge, secret)
+
+    Plug.Crypto.secure_compare(header, signature)
+  end
+
   defp to_sign(id, timestamp, payload) do
     encoded_payload = Jason.encode!(payload)
 
@@ -128,12 +166,6 @@ defmodule StandardWebhooks do
   end
 
   defp sign_and_encode(to_sign, secret) do
-    secret =
-      case String.split(secret, @secret_prefix) do
-        ["", secret] -> secret
-        [secret] when is_binary(secret) -> secret
-      end
-
     :crypto.mac(:hmac, :sha256, Base.decode64!(secret), to_sign)
     |> Base.encode64()
     |> String.trim()

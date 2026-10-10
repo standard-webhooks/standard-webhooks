@@ -10,7 +10,7 @@ defmodule StandardWebhooksTest do
   @payload %{"event_type" => "ping"}
   @secret_prefix "whsec_"
   @secret "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-  @encoded_secret @secret_prefix <> Base.encode64(@secret)
+  @prefixed_secret @secret_prefix <> @secret
 
   describe "sign/4" do
     test "raises error when message id is not a String" do
@@ -67,14 +67,25 @@ defmodule StandardWebhooksTest do
       assert is_binary(decoded_signature)
     end
 
-    test "returns valid signature when encoded secret" do
+    test "returns valid signature when prefixed secret" do
       [signature_identifier, signature] =
-        StandardWebhooks.sign(@id, @timestamp, @payload, @encoded_secret) |> String.split(",")
+        StandardWebhooks.sign(@id, @timestamp, @payload, @prefixed_secret) |> String.split(",")
 
       {:ok, decoded_signature} = Base.decode64(signature)
 
       assert "v1" == signature_identifier
       assert is_binary(decoded_signature)
+    end
+
+    test "returns the same signature for prefixed and unprefixed secret" do
+      assert StandardWebhooks.sign(@id, @timestamp, @payload, @prefixed_secret) ==
+               StandardWebhooks.sign(@id, @timestamp, @payload, @secret)
+    end
+
+    test "raises error when prefixed secret is empty" do
+      assert_raise ArgumentError, "Secret must not be empty", fn ->
+        StandardWebhooks.sign(@id, @timestamp, @payload, @secret_prefix)
+      end
     end
   end
 
@@ -93,10 +104,10 @@ defmodule StandardWebhooksTest do
       end
     end
 
-    test "return true when valid encoded_secret and signature", %{signature: signature} do
+    test "return true when valid prefixed_secret and signature", %{signature: signature} do
       conn = setup_webhook(signature)
 
-      assert StandardWebhooks.verify(@payload, conn, @encoded_secret)
+      assert StandardWebhooks.verify(@payload, conn, @prefixed_secret)
     end
 
     test "return true when valid secret and signature", %{signature: signature} do
@@ -111,6 +122,36 @@ defmodule StandardWebhooksTest do
       assert false == StandardWebhooks.verify(@payload, conn, @secret)
     end
 
+    test "return true when multiple signatures and the valid one is not last", %{
+      signature: signature
+    } do
+      conn = setup_webhook("#{signature} v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=")
+
+      assert StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return true when entry without a comma followed by valid signature", %{
+      signature: signature
+    } do
+      conn = setup_webhook("v1 #{signature}")
+
+      assert StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return true when malformed entries followed by valid signature", %{
+      signature: signature
+    } do
+      conn = setup_webhook(",,, v1,not,base64  #{signature}")
+
+      assert StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return false when valid signature with another version", %{signature: signature} do
+      conn = setup_webhook(String.replace(signature, "v1,", "v2,", global: false))
+
+      assert false == StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
     test "raises error when missing webhook header", %{signature: signature} do
       connection =
         conn(:post, "/_incoming", @payload)
@@ -120,6 +161,48 @@ defmodule StandardWebhooksTest do
       assert_raise ArgumentError, "Missing required headers", fn ->
         StandardWebhooks.verify(@payload, connection, @secret)
       end
+    end
+  end
+
+  describe "challenge_response/2" do
+    @challenge "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+    @challenge_response "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+
+    test "returns valid response when secret" do
+      assert @challenge_response == StandardWebhooks.challenge_response(@challenge, @secret)
+    end
+
+    test "returns valid response when prefixed secret" do
+      assert @challenge_response ==
+               StandardWebhooks.challenge_response(@challenge, @secret_prefix <> @secret)
+    end
+
+    test "raises error when secret is empty" do
+      assert_raise ArgumentError, "Secret must not be empty", fn ->
+        StandardWebhooks.challenge_response(@challenge, "")
+      end
+    end
+  end
+
+  describe "verify_challenge_response/3" do
+    test "returns true when valid response" do
+      assert StandardWebhooks.verify_challenge_response(@challenge, @challenge_response, @secret)
+    end
+
+    test "returns false when a list of signatures" do
+      refute StandardWebhooks.verify_challenge_response(
+               @challenge,
+               "v2,abc " <> @challenge_response,
+               @secret
+             )
+    end
+
+    test "returns false when wrong challenge" do
+      refute StandardWebhooks.verify_challenge_response(
+               "wrong-challenge",
+               @challenge_response,
+               @secret
+             )
     end
   end
 

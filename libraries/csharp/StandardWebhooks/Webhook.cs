@@ -49,29 +49,15 @@ namespace StandardWebhooks
 
             var timestamp = Webhook.VerifyTimestamp(msgTimestamp);
 
-            var signature = this.Sign(msgId, timestamp, payload);
-            var expectedSignature = signature.Split(',')[1];
+            var expectedSignature = this.Sign(msgId, timestamp, payload);
 
             var passedSignatures = msgSignature.Split(' ');
             foreach (string versionedSignature in passedSignatures)
             {
-                var parts = versionedSignature.Split(',');
-                if (parts.Length < 2)
-                {
-                    throw new WebhookVerificationException("Invalid Signature Headers");
-                }
-                var version = parts[0];
-                var passedSignature = parts[1];
-
-                if (version != "v1")
-                {
-                    continue;
-                }
-                if (Utils.SecureCompare(expectedSignature, passedSignature))
+                if (Utils.SecureCompare(expectedSignature, versionedSignature))
                 {
                     return;
                 }
-
             }
             throw new WebhookVerificationException("No matching signature found");
         }
@@ -110,6 +96,46 @@ namespace StandardWebhooks
                 var hash = hmac.ComputeHash(toSignBytes);
                 var signature = Convert.ToBase64String(hash);
                 return $"v1,{signature}";
+            }
+        }
+
+        /// <summary>
+        /// Calculates the response to a challenge-response check (CRC).
+        /// </summary>
+        /// <param name="challenge">The value of the webhook-challenge request header.</param>
+        /// <returns>The value for the webhook-challenge-response response header.</returns>
+        public string ChallengeResponse(string challenge)
+        {
+            byte[] crcKey;
+            using (var hmac = new HMACSHA256(this.key))
+            {
+                crcKey = hmac.ComputeHash(SafeUTF8Encoding.GetBytes("crc-v1"));
+            }
+            using (var hmac = new HMACSHA256(crcKey))
+            {
+                var hash = hmac.ComputeHash(SafeUTF8Encoding.GetBytes(challenge));
+                var signature = Convert.ToBase64String(hash);
+                return $"v1,{signature}";
+            }
+        }
+
+        /// <summary>
+        /// Verifies the response to a challenge-response check (CRC).
+        /// </summary>
+        /// <param name="challenge">The challenge sent in the webhook-challenge request header.</param>
+        /// <param name="header">The value of the webhook-challenge-response response header.</param>
+        public void VerifyChallengeResponse(string challenge, string header)
+        {
+            if (String.IsNullOrEmpty(challenge) || String.IsNullOrEmpty(header))
+            {
+                throw new WebhookVerificationException("Missing challenge response");
+            }
+
+            var expectedSignature = this.ChallengeResponse(challenge);
+
+            if (!Utils.SecureCompare(expectedSignature, header))
+            {
+                throw new WebhookVerificationException("No matching signature found");
             }
         }
     }

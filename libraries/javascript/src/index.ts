@@ -90,31 +90,27 @@ export class Webhook {
 
     const timestamp = this.verifyTimestamp(msgTimestamp);
 
-    const computedSignature = this.sign(msgId, timestamp, payload);
-    const expectedSignature = computedSignature.split(",")[1];
+    const encoder = new globalThis.TextEncoder();
+    const expectedSignature = encoder.encode(this.sign(msgId, timestamp, payload));
 
     const passedSignatures = msgSignature.split(" ");
-
-    const encoder = new globalThis.TextEncoder();
-    for (const versionedSignature of passedSignatures) {
-      const [version, signature] = versionedSignature.split(",");
-      if (version !== "v1") {
-        continue;
-      }
-
-      if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
-        const payloadString = payload.toString();
-        if (payloadString === "") {
-          return undefined;
-        }
-        if (jsonParse) {
-          return JSON.parse(payloadString);
-        } else {
-          return undefined;
-        }
-      }
+    if (
+      !passedSignatures.some((versionedSignature) =>
+        timingSafeEqual(encoder.encode(versionedSignature), expectedSignature)
+      )
+    ) {
+      throw new WebhookVerificationError("No matching signature found");
     }
-    throw new WebhookVerificationError("No matching signature found");
+
+    const payloadString = payload.toString();
+    if (payloadString === "") {
+      return undefined;
+    }
+    if (jsonParse) {
+      return JSON.parse(payloadString);
+    } else {
+      return undefined;
+    }
   }
 
   public sign(msgId: string, timestamp: Date, payload: string | Buffer): string {
@@ -131,6 +127,36 @@ export class Webhook {
     const toSign = encoder.encode(`${msgId}.${timestampNumber}.${payload}`);
     const expectedSignature = base64.encode(sha256.hmac(this.key, toSign));
     return `v1,${expectedSignature}`;
+  }
+
+  /** Calculate the response to a challenge-response check (CRC).
+   *
+   * @param challenge The value of the `webhook-challenge` request header
+   * @returns The value for the `webhook-challenge-response` response header
+   */
+  public challengeResponse(challenge: string): string {
+    const encoder = new TextEncoder();
+    const crcKey = sha256.hmac(this.key, encoder.encode("crc-v1"));
+    const signature = base64.encode(sha256.hmac(crcKey, encoder.encode(challenge)));
+    return `v1,${signature}`;
+  }
+
+  /** Verify the response to a challenge-response check (CRC).
+   *
+   * @param challenge The challenge sent in the `webhook-challenge` request header
+   * @param header The value of the `webhook-challenge-response` response header
+   * @throws `WebhookVerificationError` if no matching signature is found
+   */
+  public verifyChallengeResponse(challenge: string, header: string): void {
+    if (!header) {
+      throw new WebhookVerificationError("Missing challenge response");
+    }
+
+    const encoder = new globalThis.TextEncoder();
+    const expectedSignature = encoder.encode(this.challengeResponse(challenge));
+    if (!timingSafeEqual(encoder.encode(header), expectedSignature)) {
+      throw new WebhookVerificationError("No matching signature found");
+    }
   }
 
   private verifyTimestamp(timestampHeader: string): Date {

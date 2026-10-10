@@ -34,23 +34,18 @@ module StandardWebhooks
 
       verify_timestamp(msg_timestamp)
 
-      _, signature = sign(msg_id, msg_timestamp, payload).split(",", 2)
+      signature = sign(msg_id, msg_timestamp, payload)
 
       passed_signatures = msg_signature.split(" ")
-
-      passed_signatures.each do |versioned_signature|
-        version, expected_signature = versioned_signature.split(",", 2)
-
-        if version != "v1"
-          next
-        end
-
-        if ::StandardWebhooks.secure_compare(signature, expected_signature)
-          return JSON.parse(payload)
-        end
+      matched = passed_signatures.any? do |versioned_signature|
+        ::StandardWebhooks.secure_compare(versioned_signature, signature)
       end
 
-      raise WebhookVerificationError, "No matching signature found"
+      unless matched
+        raise WebhookVerificationError, "No matching signature found"
+      end
+
+      JSON.parse(payload)
     end
 
     def sign(msg_id, timestamp, payload)
@@ -64,6 +59,27 @@ module StandardWebhooks
       signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, to_sign)).strip
 
       "v1,#{signature}"
+    end
+
+    # Calculate the response to a challenge-response check (CRC). Takes the value of the
+    # `webhook-challenge` request header and returns the value for the
+    # `webhook-challenge-response` response header.
+    def challenge_response(challenge)
+      crc_key = OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, "crc-v1")
+      signature = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), crc_key, challenge)).strip
+
+      "v1,#{signature}"
+    end
+
+    # Verify the response to a challenge-response check (CRC). Takes the challenge sent in
+    # the `webhook-challenge` request header and the value of the `webhook-challenge-response`
+    # response header. Raises WebhookVerificationError if no matching signature is found.
+    def verify_challenge_response(challenge, header)
+      signature = challenge_response(challenge)
+
+      unless ::StandardWebhooks.secure_compare(header, signature)
+        raise WebhookVerificationError, "No matching signature found"
+      end
     end
 
     SECRET_PREFIX = "whsec_"
