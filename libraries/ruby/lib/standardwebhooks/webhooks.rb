@@ -41,7 +41,7 @@ module StandardWebhooks
       passed_signatures.each do |versioned_signature|
         version, expected_signature = versioned_signature.split(",", 2)
 
-        if version != "v1"
+        if version != "v1" || expected_signature.nil?
           next
         end
 
