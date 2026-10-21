@@ -8,7 +8,7 @@ defmodule StandardWebhooks do
   @secret_prefix "whsec_"
   @signature_identifier "v1"
   @tolerance 5 * 60
-  @crc_key_label "crc-v1"
+  @verification_key_label "wev-v1"
 
   @doc """
   Verify a Standard Webhook given a payload, Plug.Conn and secret
@@ -115,54 +115,56 @@ defmodule StandardWebhooks do
   end
 
   @doc """
-  Calculate the response to a challenge-response check (CRC) given a challenge and secret
+  Calculate the response to an endpoint verification challenge given a challenge and secret
 
   Takes the value of the `webhook-challenge` header and returns the value for the
   `webhook-challenge-response` header.
   """
-  @spec challenge_response(challenge :: String.t(), secret :: binary()) :: String.t()
-  def challenge_response(challenge, _secret) when not is_binary(challenge) do
+  @spec endpoint_verification_response(challenge :: String.t(), secret :: binary()) :: String.t()
+  def endpoint_verification_response(challenge, _secret) when not is_binary(challenge) do
     raise ArgumentError, message: "Challenge must be a string"
   end
 
-  def challenge_response(_challenge, secret) when not is_binary(secret) do
+  def endpoint_verification_response(_challenge, secret) when not is_binary(secret) do
     raise ArgumentError, message: "Secret must be a string"
   end
 
-  def challenge_response(challenge, @secret_prefix <> secret) do
-    challenge_response(challenge, secret)
+  def endpoint_verification_response(challenge, @secret_prefix <> secret) do
+    endpoint_verification_response(challenge, secret)
   end
 
-  def challenge_response(_challenge, secret) when secret == "" do
+  def endpoint_verification_response(_challenge, secret) when secret == "" do
     raise ArgumentError, message: "Secret must not be empty"
   end
 
-  def challenge_response(challenge, secret) do
-    crc_key = :crypto.mac(:hmac, :sha256, Base.decode64!(secret), @crc_key_label)
+  def endpoint_verification_response(challenge, secret) do
+    verification_key =
+      :crypto.mac(:hmac, :sha256, Base.decode64!(secret), @verification_key_label)
 
     signature =
-      :crypto.mac(:hmac, :sha256, crc_key, challenge)
+      :crypto.mac(:hmac, :sha256, verification_key, challenge)
       |> Base.encode64()
 
     "#{@signature_identifier},#{signature}"
   end
 
   @doc """
-  Verify the response to a challenge-response check (CRC) given a challenge, response and secret
+  Verify the response to an endpoint verification challenge given a challenge, response and secret
 
   Takes the challenge that was sent and the value of the `webhook-challenge-response` header.
   """
-  @spec verify_challenge_response(
+  @spec verify_endpoint_verification_response(
           challenge :: String.t(),
           header :: String.t(),
           secret :: binary()
         ) :: boolean()
-  def verify_challenge_response(_challenge, header, _secret) when not is_binary(header) do
+  def verify_endpoint_verification_response(_challenge, header, _secret)
+      when not is_binary(header) do
     raise ArgumentError, message: "Challenge response must be a string"
   end
 
-  def verify_challenge_response(challenge, header, secret) do
-    signature = challenge_response(challenge, secret)
+  def verify_endpoint_verification_response(challenge, header, secret) do
+    signature = endpoint_verification_response(challenge, secret)
 
     Plug.Crypto.secure_compare(header, signature)
   end

@@ -239,17 +239,17 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
     public function testChallengeResponse()
     {
         $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
-        $response = $wh->challengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
-        $this->assertEquals("v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=", $response);
+        $response = $wh->endpointVerificationResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+        $this->assertEquals("v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=", $response);
     }
 
     public function testVerifyChallengeResponse()
     {
         $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
         $challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
-        $header = "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=";
+        $header = "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=";
 
-        $wh->verifyChallengeResponse($challenge, $header);
+        $wh->verifyEndpointVerificationResponse($challenge, $header);
         $this->addToAssertionCount(1);
     }
 
@@ -259,9 +259,9 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $this->expectExceptionMessage("No matching signature found");
 
         $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
-        $wh->verifyChallengeResponse(
+        $wh->verifyEndpointVerificationResponse(
             "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
-            "v2,abc v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+            "v2,abc v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
         );
     }
 
@@ -271,7 +271,7 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $this->expectExceptionMessage("No matching signature found");
 
         $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
-        $wh->verifyChallengeResponse("wrong", "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=");
+        $wh->verifyEndpointVerificationResponse("wrong", "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=");
     }
 
     public function testRejectsEmptySecret()

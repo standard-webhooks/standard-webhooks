@@ -20,8 +20,8 @@ const (
 	HeaderWebhookChallenge         string = "webhook-challenge"
 	HeaderWebhookChallengeResponse string = "webhook-challenge-response"
 
-	webhookSecretPrefix string = "whsec_"
-	crcKeyLabel         string = "crc-v1"
+	webhookSecretPrefix  string = "whsec_"
+	verificationKeyLabel string = "wev-v1"
 )
 
 var base64enc = base64.StdEncoding
@@ -133,20 +133,20 @@ func (wh *Webhook) sign(msgId string, timestamp time.Time, payload []byte) (vers
 	return "v1", sig, nil
 }
 
-// ChallengeResponse calculates the response to a challenge-response check (CRC).
+// EndpointVerificationResponse calculates the response to an endpoint verification challenge.
 //
 // Takes the value of the `webhook-challenge` header and returns the value
 // for the `webhook-challenge-response` header.
-func (wh *Webhook) ChallengeResponse(challenge string) string {
+func (wh *Webhook) EndpointVerificationResponse(challenge string) string {
 	return fmt.Sprintf("v1,%s", wh.signChallenge(challenge))
 }
 
-// VerifyChallengeResponse validates the value of the `webhook-challenge-response`
+// VerifyEndpointVerificationResponse validates the value of the `webhook-challenge-response`
 // header against the challenge that was sent.
 //
 // Returns an error if the signature doesn't match.
-func (wh *Webhook) VerifyChallengeResponse(challenge string, header string) error {
-	if hmac.Equal([]byte(header), []byte(wh.ChallengeResponse(challenge))) {
+func (wh *Webhook) VerifyEndpointVerificationResponse(challenge string, header string) error {
+	if hmac.Equal([]byte(header), []byte(wh.EndpointVerificationResponse(challenge))) {
 		return nil
 	}
 
@@ -154,10 +154,10 @@ func (wh *Webhook) VerifyChallengeResponse(challenge string, header string) erro
 }
 
 func (wh *Webhook) signChallenge(challenge string) []byte {
-	crcKey := hmac.New(sha256.New, wh.key)
-	crcKey.Write([]byte(crcKeyLabel))
+	verificationKey := hmac.New(sha256.New, wh.key)
+	verificationKey.Write([]byte(verificationKeyLabel))
 
-	h := hmac.New(sha256.New, crcKey.Sum(nil))
+	h := hmac.New(sha256.New, verificationKey.Sum(nil))
 	h.Write([]byte(challenge))
 	sig := make([]byte, base64enc.EncodedLen(h.Size()))
 	base64enc.Encode(sig, h.Sum(nil))
