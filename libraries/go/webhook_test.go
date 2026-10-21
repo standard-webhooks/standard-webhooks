@@ -122,6 +122,38 @@ func TestWebhook(t *testing.T) {
 			expectedErr: false,
 		},
 		{
+			name:        "entry without a comma followed by a valid signature is valid",
+			testPayload: newTestPayload(time.Now()),
+			modifyPayload: func(tp *testPayload) {
+				tp.header.Set("webhook-signature", "v1 "+tp.header.Get("webhook-signature"))
+			},
+			expectedErr: false,
+		},
+		{
+			name:        "malformed entry followed by a valid signature is valid",
+			testPayload: newTestPayload(time.Now()),
+			modifyPayload: func(tp *testPayload) {
+				tp.header.Set("webhook-signature", ",,, v1,not,base64  "+tp.header.Get("webhook-signature"))
+			},
+			expectedErr: false,
+		},
+		{
+			name:        "valid signature with another version is invalid",
+			testPayload: newTestPayload(time.Now()),
+			modifyPayload: func(tp *testPayload) {
+				tp.header.Set("webhook-signature", strings.Replace(tp.header.Get("webhook-signature"), "v1,", "v2,", 1))
+			},
+			expectedErr: true,
+		},
+		{
+			name:        "valid signature with trailing data is invalid",
+			testPayload: newTestPayload(time.Now()),
+			modifyPayload: func(tp *testPayload) {
+				tp.header.Set("webhook-signature", tp.header.Get("webhook-signature")+",extra")
+			},
+			expectedErr: true,
+		},
+		{
 			name:               "old timestamp passes when ignoring tolerance",
 			testPayload:        newTestPayload(time.Now().Add(tolerance * -1)),
 			noEnforceTimestamp: true,

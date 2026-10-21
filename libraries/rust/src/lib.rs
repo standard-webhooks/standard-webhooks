@@ -102,20 +102,13 @@ impl Webhook {
 
         Self::verify_timestamp(msg_ts, now)?;
 
-        let versioned_signature = self.sign(msg_id, msg_ts, payload)?;
-        let expected_signature = versioned_signature
-            .split_once(',')
-            .map(|x| x.1)
-            .ok_or(WebhookError::InvalidSignature)?;
+        let expected_signature = self.sign(msg_id, msg_ts, payload)?;
 
         msg_signature
             .split(' ')
-            .filter_map(|x| x.split_once(','))
-            .filter(|x| x.0 == SIGNATURE_VERSION)
             .any(|x| {
-                (x.1.len() == expected_signature.len())
+                (x.len() == expected_signature.len())
                     && (x
-                        .1
                         .bytes()
                         .zip(expected_signature.bytes())
                         .fold(0, |acc, (a, b)| acc | (a ^ b))
@@ -320,6 +313,33 @@ mod tests {
         let headers = get_unbranded_headers(msg_id, &missing_sig);
 
         assert!(wh.verify(payload, &headers).is_err());
+    }
+
+    #[test]
+    fn test_verify_with_malformed_signatures() {
+        let secret = "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD".to_owned();
+        let msg_id = "msg_27UH4WbU6Z5A5EzD8u03UvzRbpk";
+        let payload = br#"{"email":"test@example.com","username":"test_user"}"#;
+        let wh = Webhook::new(&secret).unwrap();
+
+        let signature = wh
+            .sign(msg_id, OffsetDateTime::now_utc().unix_timestamp(), payload)
+            .unwrap();
+
+        // An entry without a comma followed by a valid signature
+        let headers = get_unbranded_headers(msg_id, &format!("v1 {signature}"));
+        wh.verify(payload, &headers).unwrap();
+
+        // Malformed entries followed by a valid signature
+        let headers = get_unbranded_headers(msg_id, &format!(",,, v1,not,base64  {signature}"));
+        wh.verify(payload, &headers).unwrap();
+
+        // A valid signature with another version
+        let headers = get_unbranded_headers(msg_id, &signature.replacen("v1,", "v2,", 1));
+        assert_eq!(
+            wh.verify(payload, &headers),
+            Err(WebhookError::InvalidSignature)
+        );
     }
 
     #[test]

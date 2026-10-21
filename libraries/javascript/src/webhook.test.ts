@@ -193,6 +193,31 @@ test("multi sig payload is valid", () => {
   wh.verify(testPayload.payload, testPayload.header);
 });
 
+test("malformed signatures are skipped", () => {
+  const wh = new Webhook("MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  const testPayload = new TestPayload();
+  const sigs = [
+    "v1",
+    "v1,not-base64!",
+    testPayload.header["webhook-signature"], // valid signature
+  ];
+  testPayload.header["webhook-signature"] = sigs.join(" ");
+
+  wh.verify(testPayload.payload, testPayload.header);
+});
+
+test("valid signature with an unknown version fails", () => {
+  const wh = new Webhook("MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+  const testPayload = new TestPayload();
+  testPayload.header["webhook-signature"] = `v2,${testPayload.signature}`;
+
+  assert.throws(() => {
+    wh.verify(testPayload.payload, testPayload.header);
+  }, WebhookVerificationError);
+});
+
 test("verification works with and without signature prefix", () => {
   const testPayload = new TestPayload();
 
