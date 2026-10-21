@@ -36,6 +36,19 @@ export interface VerifyOptions {
   jsonParse?: boolean;
 }
 
+/** The payload as signed: the body bytes exactly as received. A string is encoded as UTF-8. */
+function payloadBytes(payload: string | Uint8Array): Uint8Array {
+  if (typeof payload === "string") {
+    return new TextEncoder().encode(payload);
+  }
+  // `ArrayBuffer.isView` rather than `instanceof Uint8Array`, so a Buffer or Uint8Array from
+  // another realm (e.g. a test runner's VM context) is still accepted.
+  if (ArrayBuffer.isView(payload)) {
+    return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+  }
+  throw new Error("Expected payload to be of type string, Buffer or Uint8Array.");
+}
+
 export class Webhook {
   private static prefix = "whsec_";
   private readonly key: Uint8Array;
@@ -63,13 +76,16 @@ export class Webhook {
 
   /** Verify the given webhook headers against the body bytes (payload).
    *
+   * Pass the raw request body exactly as received: a `Buffer` or `Uint8Array` is signed byte
+   * for byte, so binary (non-UTF-8) bodies verify. A string is signed as its UTF-8 encoding.
+   *
    * @returns After successful verification: if `options.jsonParse` is `true`, returns the
    *     JSON-parsed input data; if `options.jsonParse` is `false`, returns `undefined`
    * @throws `WebhookVerificationError` if one of the required headers is missing,
    *     invalid, too old or too new; or no matching signatures is found
    */
   public verify(
-    payload: string | Buffer,
+    payload: string | Uint8Array,
     headers: WebhookUnbrandedRequiredHeaders | Record<string, string>,
     options?: VerifyOptions
   ): unknown {
@@ -90,7 +106,8 @@ export class Webhook {
 
     const timestamp = this.verifyTimestamp(msgTimestamp);
 
-    const computedSignature = this.sign(msgId, timestamp, payload);
+    const bytes = payloadBytes(payload);
+    const computedSignature = this.sign(msgId, timestamp, bytes);
     const expectedSignature = computedSignature.split(",")[1];
 
     const passedSignatures = msgSignature.split(" ");
@@ -103,12 +120,13 @@ export class Webhook {
       }
 
       if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
-        const payloadString = payload.toString();
-        if (payloadString === "") {
+        if (bytes.length === 0) {
           return undefined;
         }
         if (jsonParse) {
-          return JSON.parse(payloadString);
+          return JSON.parse(
+            typeof payload === "string" ? payload : new TextDecoder().decode(bytes)
+          );
         } else {
           return undefined;
         }
@@ -117,18 +135,18 @@ export class Webhook {
     throw new WebhookVerificationError("No matching signature found");
   }
 
-  public sign(msgId: string, timestamp: Date, payload: string | Buffer): string {
-    if (typeof payload === "string") {
-      // Do nothing, already a string
-    } else if (payload.constructor.name === "Buffer") {
-      payload = payload.toString();
-    } else {
-      throw new Error("Expected payload to be of type string or Buffer.");
-    }
-
-    const encoder = new TextEncoder();
+  /** Sign `payload` for the given message id and timestamp.
+   *
+   * A `Buffer` or `Uint8Array` payload is signed byte for byte, so binary (non-UTF-8) bodies
+   * are signed as sent. A string is signed as its UTF-8 encoding.
+   */
+  public sign(msgId: string, timestamp: Date, payload: string | Uint8Array): string {
+    const bytes = payloadBytes(payload);
     const timestampNumber = Math.floor(timestamp.getTime() / 1000);
-    const toSign = encoder.encode(`${msgId}.${timestampNumber}.${payload}`);
+    const prefix = new TextEncoder().encode(`${msgId}.${timestampNumber}.`);
+    const toSign = new Uint8Array(prefix.length + bytes.length);
+    toSign.set(prefix);
+    toSign.set(bytes, prefix.length);
     const expectedSignature = base64.encode(sha256.hmac(this.key, toSign));
     return `v1,${expectedSignature}`;
   }
