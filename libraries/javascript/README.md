@@ -11,6 +11,10 @@ const wh = new Webhook(base64_secret);
 wh.verify(webhook_payload, webhook_headers);
 ```
 
+`webhook_payload` must be the raw request body exactly as received, before any JSON parsing.
+Pass it as a `Buffer` or `Uint8Array` to verify the bytes as sent, including bodies that aren't
+valid UTF-8. A string is verified as its UTF-8 encoding.
+
 # Development
 
 ## Requirements
