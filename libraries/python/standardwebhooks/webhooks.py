@@ -11,6 +11,11 @@ def hmac_data(key: bytes, data: bytes) -> bytes:
     return hmac.new(key, data, hashlib.sha256).digest()
 
 
+def _payload_bytes(data: t.Union[bytes, str]) -> bytes:
+    """The payload as signed: the body bytes exactly as received. A str is encoded as UTF-8."""
+    return data.encode() if isinstance(data, str) else bytes(data)
+
+
 class WebhookVerificationError(Exception):
     pass
 
@@ -48,6 +53,9 @@ class Webhook:
         """
         Verify the given webhook headers against the body bytes (data).
 
+        Pass the raw request body exactly as received. bytes are verified byte for byte, so
+        bodies that aren't valid UTF-8 verify. A str is verified as its UTF-8 encoding.
+
         Args:
             json_parse (bool): Whether to parse the data as JSON on success (default: True)
 
@@ -60,7 +68,7 @@ class Webhook:
             invalid, too old or too new; or no matching signature is found.
         """
 
-        data = data if isinstance(data, str) else data.decode()
+        payload = _payload_bytes(data)
         headers = {k.lower(): v for (k, v) in headers.items()}
         msg_id = headers.get("webhook-id")
         msg_signature = headers.get("webhook-signature")
@@ -70,15 +78,15 @@ class Webhook:
 
         timestamp = self.__verify_timestamp(msg_timestamp)
 
-        expected_sig = self.sign(msg_id=msg_id, timestamp=timestamp, data=data).encode()
+        expected_sig = self.sign(msg_id=msg_id, timestamp=timestamp, data=payload).encode()
         passed_sigs = msg_signature.split(" ")
         if not any(hmac.compare_digest(expected_sig, versioned_sig.encode()) for versioned_sig in passed_sigs):
             raise WebhookVerificationError("No matching signature found")
 
         if json_parse:
-            return json.loads(data)
+            return json.loads(data if isinstance(data, str) else payload)
 
-    def sign(self, msg_id: str, timestamp: datetime, data: str) -> str:
+    def sign(self, msg_id: str, timestamp: datetime, data: t.Union[bytes, str]) -> str:
         """
         Sign the given payload and return the versioned signature string.
 
@@ -87,12 +95,13 @@ class Webhook:
             timestamp: The message timestamp (sent as the `webhook-timestamp` header).
                 Timezone-aware datetimes are converted to their POSIX timestamp, so any
                 timezone can be used. Naive datetimes are interpreted as UTC.
-            data: The raw payload string.
+            data: The raw payload. bytes are signed byte for byte, so bodies that aren't
+                valid UTF-8 are signed as sent. A str is signed as its UTF-8 encoding.
         """
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
         timestamp_str = str(floor(timestamp.timestamp()))
-        to_sign = f"{msg_id}.{timestamp_str}.{data}".encode()
+        to_sign = f"{msg_id}.{timestamp_str}.".encode() + _payload_bytes(data)
         signature = hmac_data(self._whsecret, to_sign)
         return f"v1,{base64.b64encode(signature).decode('utf-8')}"
 

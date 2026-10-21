@@ -288,3 +288,60 @@ def test_verify_accepts_signature_made_with_non_utc_timezone_aware_timestamp() -
 
     json = wh.verify(DEFAULT_PAYLOAD, headers)
     assert json["test"] == 2432232314
+
+
+# Every byte value, so the payload is not valid UTF-8. The expected signature is the Go
+# library's for the same inputs, which signs the payload bytes as given.
+BINARY_PAYLOAD = bytes(range(256))
+BINARY_PAYLOAD_SIGNATURE = "v1,sEcZ042G8Crqgxbybb3y0eDxQR3TcfYsk11I1XULhSI="
+SIGN_TIMESTAMP = datetime.fromtimestamp(1614265330, tz=timezone.utc)
+
+
+def binary_header(timestamp: str, payload: bytes) -> t.Dict[str, str]:
+    to_sign = f"{DEFAULT_MSG_ID}.{timestamp}.".encode() + payload
+    signature = base64.b64encode(hmac_data(base64.b64decode(DEFAULT_SECRET), to_sign)).decode("utf-8")
+    return {
+        "webhook-id": DEFAULT_MSG_ID,
+        "webhook-signature": "v1," + signature,
+        "webhook-timestamp": timestamp,
+    }
+
+
+def test_sign_function_binary_payload() -> None:
+    wh = Webhook("whsec_" + DEFAULT_SECRET)
+
+    assert wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=BINARY_PAYLOAD) == BINARY_PAYLOAD_SIGNATURE
+
+
+def test_sign_function_same_for_str_and_its_utf8_bytes() -> None:
+    wh = Webhook("whsec_" + DEFAULT_SECRET)
+    payload = '{"test": "ünïcödé ✓"}'
+
+    assert wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=payload.encode()) == wh.sign(
+        msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=payload
+    )
+
+
+def test_binary_payload_is_valid() -> None:
+    timestamp = str(floor(datetime.now(tz=timezone.utc).timestamp()))
+    wh = Webhook(DEFAULT_SECRET)
+
+    assert wh.verify(BINARY_PAYLOAD, binary_header(timestamp, BINARY_PAYLOAD), json_parse=False) is None
+
+
+def test_binary_payload_with_changed_byte_fails() -> None:
+    timestamp = str(floor(datetime.now(tz=timezone.utc).timestamp()))
+    header = binary_header(timestamp, BINARY_PAYLOAD)
+    changed = BINARY_PAYLOAD[:-1] + b"\x00"
+    wh = Webhook(DEFAULT_SECRET)
+
+    with pytest.raises(WebhookVerificationError):
+        wh.verify(changed, header, json_parse=False)
+
+
+def test_json_payload_as_bytes_returns_json() -> None:
+    test_payload = PayloadForTesting()
+    wh = Webhook(test_payload.secret)
+
+    json = wh.verify(test_payload.payload.encode(), test_payload.header)
+    assert json["test"] == 2432232314
