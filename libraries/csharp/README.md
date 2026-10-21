@@ -11,6 +11,23 @@ var wh = new Webhook(base64Secret);
 wh.Verify(webhookPayload, webhookHeaders);
 ```
 
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
+
+```cs
+var challenge = webhookHeaders.Get("webhook-challenge");
+if (challenge != null)
+{
+    response.Headers["webhook-challenge-response"] = wh.EndpointVerificationResponse(challenge);
+}
+```
+
+Verifying a challenge response (for producers):
+
+```cs
+// Throws WebhookVerificationException if the response is invalid
+wh.VerifyEndpointVerificationResponse(challenge, responseHeader);
+```
+
 # Development
 
 ## Requirements

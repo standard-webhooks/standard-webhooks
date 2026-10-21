@@ -11,6 +11,21 @@ $wh = new \StandardWebhooks\Webhook($base64Secret);
 $wh->verify($webhookPayload, $webhookHeaders);
 ```
 
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
+
+```php
+if (isset($webhookHeaders['webhook-challenge'])) {
+    header('webhook-challenge-response: ' . $wh->endpointVerificationResponse($webhookHeaders['webhook-challenge']));
+}
+```
+
+Verifying a challenge response (for producers):
+
+```php
+// Throws WebhookVerificationException if the response is invalid
+$wh->verifyEndpointVerificationResponse($challenge, $responseHeaders['webhook-challenge-response']);
+```
+
 ### Required Dependencies
 
 Standard Webhooks PHP requires the following extensions in order to run:

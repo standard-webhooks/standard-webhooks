@@ -17,7 +17,11 @@ const (
 	HeaderWebhookSignature string = "webhook-signature"
 	HeaderWebhookTimestamp string = "webhook-timestamp"
 
-	webhookSecretPrefix string = "whsec_"
+	HeaderWebhookChallenge         string = "webhook-challenge"
+	HeaderWebhookChallengeResponse string = "webhook-challenge-response"
+
+	webhookSecretPrefix  string = "whsec_"
+	verificationKeyLabel string = "wev-v1"
 )
 
 var base64enc = base64.StdEncoding
@@ -99,27 +103,13 @@ func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance 
 		}
 	}
 
-	_, expectedSignature, err := wh.sign(msgId, timestamp, payload)
+	expectedSignature, err := wh.Sign(msgId, timestamp, payload)
 	if err != nil {
 		return fmt.Errorf("unable to verify payload, err: %w", err)
 	}
 
-	passedSignatures := strings.Split(msgSignature, " ")
-	for _, versionedSignature := range passedSignatures {
-		sigParts := strings.Split(versionedSignature, ",")
-		if len(sigParts) < 2 {
-			continue
-		}
-
-		version := sigParts[0]
-
-		if version != "v1" {
-			continue
-		}
-
-		signature := []byte(sigParts[1])
-
-		if hmac.Equal(signature, expectedSignature) {
+	for _, versionedSignature := range strings.Split(msgSignature, " ") {
+		if hmac.Equal([]byte(versionedSignature), []byte(expectedSignature)) {
 			return nil
 		}
 	}
@@ -141,6 +131,38 @@ func (wh *Webhook) sign(msgId string, timestamp time.Time, payload []byte) (vers
 	base64enc.Encode(sig, h.Sum(nil))
 
 	return "v1", sig, nil
+}
+
+// EndpointVerificationResponse calculates the response to an endpoint verification challenge.
+//
+// Takes the value of the `webhook-challenge` header and returns the value
+// for the `webhook-challenge-response` header.
+func (wh *Webhook) EndpointVerificationResponse(challenge string) string {
+	return fmt.Sprintf("v1,%s", wh.signChallenge(challenge))
+}
+
+// VerifyEndpointVerificationResponse validates the value of the `webhook-challenge-response`
+// header against the challenge that was sent.
+//
+// Returns an error if the signature doesn't match.
+func (wh *Webhook) VerifyEndpointVerificationResponse(challenge string, header string) error {
+	if hmac.Equal([]byte(header), []byte(wh.EndpointVerificationResponse(challenge))) {
+		return nil
+	}
+
+	return fmt.Errorf("unable to verify challenge response, err: %w", ErrNoMatchingSignature)
+}
+
+func (wh *Webhook) signChallenge(challenge string) []byte {
+	verificationKey := hmac.New(sha256.New, wh.key)
+	verificationKey.Write([]byte(verificationKeyLabel))
+
+	h := hmac.New(sha256.New, verificationKey.Sum(nil))
+	h.Write([]byte(challenge))
+	sig := make([]byte, base64enc.EncodedLen(h.Size()))
+	base64enc.Encode(sig, h.Sum(nil))
+
+	return sig
 }
 
 func parseTimestampHeader(timestampHeader string) (time.Time, error) {

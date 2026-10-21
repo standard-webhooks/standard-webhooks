@@ -70,23 +70,14 @@ abstract class WebhookBase {
 
 		String expectedSignature;
 		try {
-			expectedSignature = this.sign(msgId, timestamp, payload).split(",")[1];
+			expectedSignature = this.sign(msgId, timestamp, payload);
 		} catch (WebhookSigningException e) {
 			throw new WebhookVerificationException("Failed to generate expected signature");
 		}
 
-		String[] msgSignatures = msgSignature.split(" ");
-		for (String versionedSignature : msgSignatures) {
-			String[] sigParts = versionedSignature.split(",");
-			if (sigParts.length < 2) {
-				continue;
-			}
-			String version = sigParts[0];
-			if (!version.equals("v1")) {
-				continue;
-			}
-			String signature = sigParts[1];
-			if (MessageDigest.isEqual(signature.getBytes(), expectedSignature.getBytes())) {
+		byte[] expected = expectedSignature.getBytes(StandardCharsets.UTF_8);
+		for (String versionedSignature : msgSignature.split(" ")) {
+			if (MessageDigest.isEqual(versionedSignature.getBytes(StandardCharsets.UTF_8), expected)) {
 				return;
 			}
 		}
@@ -119,6 +110,51 @@ abstract class WebhookBase {
 			return String.format("v1,%s", signature);
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			throw new WebhookSigningException(e.getMessage());
+		}
+	}
+
+	/**
+	 * Calculate the response to an endpoint verification challenge.
+	 *
+	 * @param challenge The value of the webhook-challenge request header
+	 * @return The value for the webhook-challenge-response response header
+	 * @throws WebhookSigningException if the response can't be calculated
+	 */
+	public final String endpointVerificationResponse(final String challenge) throws WebhookSigningException {
+		try {
+			Mac hmac = Mac.getInstance(HMAC_SHA256);
+			hmac.init(new SecretKeySpec(this.key, HMAC_SHA256));
+			byte[] verificationKey = hmac.doFinal("wev-v1".getBytes(StandardCharsets.UTF_8));
+			hmac.init(new SecretKeySpec(verificationKey, HMAC_SHA256));
+			byte[] macData = hmac.doFinal(challenge.getBytes(StandardCharsets.UTF_8));
+			String signature = Base64.getEncoder().encodeToString(macData);
+			return String.format("v1,%s", signature);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			throw new WebhookSigningException(e.getMessage());
+		}
+	}
+
+	/**
+	 * Verify the response to an endpoint verification challenge.
+	 *
+	 * @param challenge The challenge sent in the webhook-challenge request header
+	 * @param header The value of the webhook-challenge-response response header
+	 * @throws WebhookVerificationException if verification fails
+	 */
+	public final void verifyEndpointVerificationResponse(final String challenge, final String header) throws WebhookVerificationException {
+		if (challenge == null || header == null) {
+			throw new WebhookVerificationException("Missing challenge response");
+		}
+
+		String expectedSignature;
+		try {
+			expectedSignature = this.endpointVerificationResponse(challenge);
+		} catch (WebhookSigningException e) {
+			throw new WebhookVerificationException("Failed to generate expected signature");
+		}
+
+		if (!MessageDigest.isEqual(header.getBytes(StandardCharsets.UTF_8), expectedSignature.getBytes(StandardCharsets.UTF_8))) {
+			throw new WebhookVerificationException("No matching signature found");
 		}
 	}
 

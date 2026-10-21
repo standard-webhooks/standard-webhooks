@@ -43,20 +43,11 @@ class Webhook
 
         $timestamp = $this->verifyTimestamp($msgTimestamp);
 
-        $signature = $this->sign($msgId, $timestamp, $payload);
-        $expectedSignature = explode(',', $signature, 2)[1];
+        $expectedSignature = $this->sign($msgId, $timestamp, $payload);
 
         $passedSignatures = explode(' ', $msgSignature);
         foreach ($passedSignatures as $versionedSignature) {
-            $sigParts = explode(',', $versionedSignature, 2);
-            $version = $sigParts[0];
-            $passedSignature = $sigParts[1];
-
-            if (strcmp($version, "v1") !== 0) {
-                continue;
-            }
-
-            if (hash_equals($expectedSignature, $passedSignature)) {
+            if (hash_equals($expectedSignature, $versionedSignature)) {
                 return json_decode($payload, true);
             }
         }
@@ -74,6 +65,39 @@ class Webhook
         $hex_hash = hash_hmac('sha256', $toSign, $this->secret);
         $signature = base64_encode(pack('H*', $hex_hash));
         return "v1,{$signature}";
+    }
+
+    /**
+     * Calculate the response to an endpoint verification challenge.
+     *
+     * @param string $challenge The value of the webhook-challenge request header
+     * @return string The value for the webhook-challenge-response response header
+     */
+    public function endpointVerificationResponse($challenge)
+    {
+        $verificationKey = hash_hmac('sha256', 'wev-v1', $this->secret, true);
+        $signature = base64_encode(hash_hmac('sha256', $challenge, $verificationKey, true));
+        return "v1,{$signature}";
+    }
+
+    /**
+     * Verify the response to an endpoint verification challenge.
+     *
+     * @param string $challenge The challenge sent in the webhook-challenge request header
+     * @param string $header The value of the webhook-challenge-response response header
+     * @throws Exception\WebhookVerificationException if verification fails
+     */
+    public function verifyEndpointVerificationResponse($challenge, $header)
+    {
+        if (empty($challenge) || empty($header)) {
+            throw new Exception\WebhookVerificationException("Missing challenge response");
+        }
+
+        $expectedSignature = $this->endpointVerificationResponse($challenge);
+
+        if (!hash_equals($expectedSignature, $header)) {
+            throw new Exception\WebhookVerificationException("No matching signature found");
+        }
     }
 
     private function verifyTimestamp($timestampHeader)
