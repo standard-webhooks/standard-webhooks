@@ -190,6 +190,17 @@ describe StandardWebhooks::Webhook do
     }.to raise_error(StandardWebhooks::WebhookVerificationError)
   end
 
+  it "signature with a version and no signature raises error" do
+    testPayload = TestPayload.new
+    testPayload.headers["webhook-signature"] = "v1"
+
+    wh = StandardWebhooks::Webhook.new(testPayload.secret)
+
+    expect {
+      wh.verify(testPayload.payload, testPayload.headers)
+    }.to raise_error(StandardWebhooks::WebhookVerificationError)
+  end
+
   it "signature verification works with and without prefix" do
     testPayload = TestPayload.new
 
