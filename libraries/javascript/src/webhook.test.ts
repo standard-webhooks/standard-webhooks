@@ -1,5 +1,6 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
+import * as vm from "node:vm";
 import * as base64 from "@stablelib/base64";
 import * as utf8 from "@stablelib/utf8";
 import * as sha256 from "fast-sha256";
@@ -259,4 +260,122 @@ test("empty payload returns undefined", () => {
 
   const result = wh.verify(payload, header);
   assert.equal(result, undefined);
+});
+
+// Every byte value, so the payload is not valid UTF-8. The expected signature is the Go
+// library's for the same inputs, which signs the payload bytes as given.
+const binaryPayload = Uint8Array.from({ length: 256 }, (_, i) => i);
+const binaryPayloadSignature = "v1,sEcZ042G8Crqgxbybb3y0eDxQR3TcfYsk11I1XULhSI=";
+const signTimestamp = new Date(1614265330 * 1000);
+
+function binaryHeader(timestamp: number, payload: Uint8Array): Record<string, string> {
+  const prefix = utf8.encode(`${defaultMsgID}.${timestamp}.`);
+  const toSign = new Uint8Array(prefix.length + payload.length);
+  toSign.set(prefix);
+  toSign.set(payload, prefix.length);
+  const signature = base64.encode(sha256.hmac(base64.decode(defaultSecret), toSign));
+  return {
+    "webhook-id": defaultMsgID,
+    "webhook-signature": `v1,${signature}`,
+    "webhook-timestamp": timestamp.toString(),
+  };
+}
+
+test("sign signs a binary payload byte for byte", () => {
+  const wh = new Webhook(`whsec_${defaultSecret}`);
+
+  assert.equal(
+    wh.sign(defaultMsgID, signTimestamp, binaryPayload),
+    binaryPayloadSignature
+  );
+  assert.equal(
+    wh.sign(defaultMsgID, signTimestamp, Buffer.from(binaryPayload)),
+    binaryPayloadSignature
+  );
+});
+
+test("sign signs only the bytes of a Uint8Array view", () => {
+  const wh = new Webhook(`whsec_${defaultSecret}`);
+  const padded = new Uint8Array(binaryPayload.length + 4);
+  padded.set(binaryPayload, 2);
+
+  assert.equal(
+    wh.sign(defaultMsgID, signTimestamp, padded.subarray(2, 2 + binaryPayload.length)),
+    binaryPayloadSignature
+  );
+});
+
+test("sign gives the same signature for a string and its UTF-8 bytes", () => {
+  const wh = new Webhook(`whsec_${defaultSecret}`);
+  const payload = '{"test": "ünïcödé ✓"}';
+
+  assert.equal(
+    wh.sign(defaultMsgID, signTimestamp, Buffer.from(payload)),
+    wh.sign(defaultMsgID, signTimestamp, payload)
+  );
+  assert.equal(
+    wh.sign(defaultMsgID, signTimestamp, new TextEncoder().encode(payload)),
+    wh.sign(defaultMsgID, signTimestamp, payload)
+  );
+});
+
+test("sign accepts a Uint8Array from another realm", () => {
+  const wh = new Webhook(`whsec_${defaultSecret}`);
+  const foreign = vm.runInNewContext(
+    "new Uint8Array(256).map((_, i) => i)"
+  ) as Uint8Array;
+  assert.equal(foreign instanceof Uint8Array, false);
+
+  assert.equal(wh.sign(defaultMsgID, signTimestamp, foreign), binaryPayloadSignature);
+});
+
+test("sign rejects a payload that is not a string or bytes", () => {
+  const wh = new Webhook(`whsec_${defaultSecret}`);
+
+  assert.throws(() => {
+    wh.sign(defaultMsgID, signTimestamp, { test: 1 } as any);
+  }, Error);
+});
+
+test("binary payload is valid", () => {
+  const wh = new Webhook(defaultSecret);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const header = binaryHeader(timestamp, binaryPayload);
+
+  assert.equal(wh.verify(binaryPayload, header, { jsonParse: false }), undefined);
+  assert.equal(
+    wh.verify(Buffer.from(binaryPayload), header, { jsonParse: false }),
+    undefined
+  );
+});
+
+test("binary payload with a changed byte fails", () => {
+  const wh = new Webhook(defaultSecret);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const header = binaryHeader(timestamp, binaryPayload);
+  const changed = Uint8Array.from(binaryPayload);
+  changed[255] = 0;
+
+  assert.throws(() => {
+    wh.verify(changed, header, { jsonParse: false });
+  }, WebhookVerificationError);
+});
+
+test("JSON payload as Uint8Array is valid and returns valid json", () => {
+  const wh = new Webhook(defaultSecret);
+  const testPayload = new TestPayload();
+
+  const json = wh.verify(
+    new TextEncoder().encode(testPayload.payload),
+    testPayload.header
+  );
+  assert.deepEqual(json, { test: 2432232314 });
+});
+
+test("empty Uint8Array payload returns undefined", () => {
+  const wh = new Webhook(defaultSecret);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = new Uint8Array();
+
+  assert.equal(wh.verify(payload, binaryHeader(timestamp, payload)), undefined);
 });
