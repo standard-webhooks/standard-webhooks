@@ -100,18 +100,18 @@ namespace StandardWebhooks
         }
 
         /// <summary>
-        /// Calculates the response to a challenge-response check (CRC).
+        /// Calculates the response to an endpoint verification challenge.
         /// </summary>
         /// <param name="challenge">The value of the webhook-challenge request header.</param>
         /// <returns>The value for the webhook-challenge-response response header.</returns>
-        public string ChallengeResponse(string challenge)
+        public string EndpointVerificationResponse(string challenge)
         {
-            byte[] crcKey;
+            byte[] verificationKey;
             using (var hmac = new HMACSHA256(this.key))
             {
-                crcKey = hmac.ComputeHash(SafeUTF8Encoding.GetBytes("crc-v1"));
+                verificationKey = hmac.ComputeHash(SafeUTF8Encoding.GetBytes("wev-v1"));
             }
-            using (var hmac = new HMACSHA256(crcKey))
+            using (var hmac = new HMACSHA256(verificationKey))
             {
                 var hash = hmac.ComputeHash(SafeUTF8Encoding.GetBytes(challenge));
                 var signature = Convert.ToBase64String(hash);
@@ -120,18 +120,18 @@ namespace StandardWebhooks
         }
 
         /// <summary>
-        /// Verifies the response to a challenge-response check (CRC).
+        /// Verifies the response to an endpoint verification challenge.
         /// </summary>
         /// <param name="challenge">The challenge sent in the webhook-challenge request header.</param>
         /// <param name="header">The value of the webhook-challenge-response response header.</param>
-        public void VerifyChallengeResponse(string challenge, string header)
+        public void VerifyEndpointVerificationResponse(string challenge, string header)
         {
             if (String.IsNullOrEmpty(challenge) || String.IsNullOrEmpty(header))
             {
                 throw new WebhookVerificationException("Missing challenge response");
             }
 
-            var expectedSignature = this.ChallengeResponse(challenge);
+            var expectedSignature = this.EndpointVerificationResponse(challenge);
 
             if (!Utils.SecureCompare(expectedSignature, header))
             {

@@ -68,32 +68,32 @@ class Webhook
     }
 
     /**
-     * Calculate the response to a challenge-response check (CRC).
+     * Calculate the response to an endpoint verification challenge.
      *
      * @param string $challenge The value of the webhook-challenge request header
      * @return string The value for the webhook-challenge-response response header
      */
-    public function challengeResponse($challenge)
+    public function endpointVerificationResponse($challenge)
     {
-        $crcKey = hash_hmac('sha256', 'crc-v1', $this->secret, true);
-        $signature = base64_encode(hash_hmac('sha256', $challenge, $crcKey, true));
+        $verificationKey = hash_hmac('sha256', 'wev-v1', $this->secret, true);
+        $signature = base64_encode(hash_hmac('sha256', $challenge, $verificationKey, true));
         return "v1,{$signature}";
     }
 
     /**
-     * Verify the response to a challenge-response check (CRC).
+     * Verify the response to an endpoint verification challenge.
      *
      * @param string $challenge The challenge sent in the webhook-challenge request header
      * @param string $header The value of the webhook-challenge-response response header
      * @throws Exception\WebhookVerificationException if verification fails
      */
-    public function verifyChallengeResponse($challenge, $header)
+    public function verifyEndpointVerificationResponse($challenge, $header)
     {
         if (empty($challenge) || empty($header)) {
             throw new Exception\WebhookVerificationException("Missing challenge response");
         }
 
-        $expectedSignature = $this->challengeResponse($challenge);
+        $expectedSignature = $this->endpointVerificationResponse($challenge);
 
         if (!hash_equals($expectedSignature, $header)) {
             throw new Exception\WebhookVerificationException("No matching signature found");

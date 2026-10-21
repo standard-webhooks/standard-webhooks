@@ -166,27 +166,27 @@ public class WebhookTest {
 	@Test
 	public void verifyChallengeResponseWorks() throws WebhookSigningException, EmptyWebhookSecretException {
 		Webhook webhook = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
-		String response = webhook.challengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
-		assertEquals("v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=", response);
+		String response = webhook.endpointVerificationResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+		assertEquals("v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=", response);
 	}
 
 	@Test
 	public void verifyChallengeResponseVerifiesWorks() throws WebhookVerificationException, EmptyWebhookSecretException {
 		final Webhook webhook = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
 		final String challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
-		final String header = "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=";
+		final String header = "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=";
 
-		webhook.verifyChallengeResponse(challenge, header);
+		webhook.verifyEndpointVerificationResponse(challenge, header);
 		assertThrows(WebhookVerificationException.class, new ThrowingRunnable() {
 			@Override
 			public void run() throws WebhookVerificationException {
-				webhook.verifyChallengeResponse(challenge, "v2,abc " + header);
+				webhook.verifyEndpointVerificationResponse(challenge, "v2,abc " + header);
 			}
 		});
 		assertThrows(WebhookVerificationException.class, new ThrowingRunnable() {
 			@Override
 			public void run() throws WebhookVerificationException {
-				webhook.verifyChallengeResponse("wrong", header);
+				webhook.verifyEndpointVerificationResponse("wrong", header);
 			}
 		});
 	}

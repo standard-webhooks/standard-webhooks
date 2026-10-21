@@ -11,18 +11,18 @@ wh = Webhook(base64_secret)
 wh.verify(webhook_payload, webhook_headers)
 ```
 
-Responding to a [challenge-response check](../../spec/extensions/crc.md):
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
 
 ```python
 challenge = webhook_headers.get("webhook-challenge")
 if challenge:
-    response_headers["webhook-challenge-response"] = wh.challenge_response(challenge)
+    response_headers["webhook-challenge-response"] = wh.endpoint_verification_response(challenge)
 ```
 
 Verifying the response as a producer (raises `WebhookVerificationError` if it doesn't match):
 
 ```python
-wh.verify_challenge_response(challenge, response_headers["webhook-challenge-response"])
+wh.verify_endpoint_verification_response(challenge, response_headers["webhook-challenge-response"])
 ```
 
 # Development

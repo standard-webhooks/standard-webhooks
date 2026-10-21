@@ -344,4 +344,4 @@ Extensions are optional additions to the specification. Implementations don't ne
 
 Each extension is described in its own document:
 
-- [Challenge-response check (CRC)](./extensions/crc.md): lets producers confirm that an endpoint has opted in to receiving webhooks, and that it holds the correct signing secret, before delivering webhooks to it.
+- [Webhook endpoint verification](./extensions/endpoint-verification.md): lets producers confirm that an endpoint has opted in to receiving webhooks, and that it holds the correct signing secret, before delivering webhooks to it.

@@ -264,16 +264,18 @@ test("empty payload returns undefined", () => {
 test("challenge response matches test vector", () => {
   const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
 
-  const result = wh.challengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
-  assert.equal(result, "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=");
+  const result = wh.endpointVerificationResponse(
+    "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+  );
+  assert.equal(result, "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=");
 });
 
 test("verify challenge response accepts test vector", () => {
   const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
 
-  wh.verifyChallengeResponse(
+  wh.verifyEndpointVerificationResponse(
     "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
-    "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+    "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
   );
 });
 
@@ -281,9 +283,9 @@ test("verify challenge response rejects wrong challenge", () => {
   const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
 
   assert.throws(() => {
-    wh.verifyChallengeResponse(
+    wh.verifyEndpointVerificationResponse(
       "1njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
-      "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+      "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
     );
   }, WebhookVerificationError);
 });
@@ -292,9 +294,9 @@ test("verify challenge response rejects lists", () => {
   const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
 
   assert.throws(() => {
-    wh.verifyChallengeResponse(
+    wh.verifyEndpointVerificationResponse(
       "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
-      "v2,abc v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M="
+      "v2,abc v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
     );
   }, WebhookVerificationError);
 });
@@ -302,6 +304,8 @@ test("verify challenge response rejects lists", () => {
 test("challenge response depends on the secret", () => {
   const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSx");
 
-  const result = wh.challengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
-  assert.notEqual(result, "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=");
+  const result = wh.endpointVerificationResponse(
+    "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+  );
+  assert.notEqual(result, "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=");
 });

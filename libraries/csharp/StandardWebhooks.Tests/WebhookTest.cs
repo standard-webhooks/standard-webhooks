@@ -225,8 +225,8 @@ namespace StandardWebhooks.Tests
         public void verifyChallengeResponseWorks()
         {
             var wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
-            var response = wh.ChallengeResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
-            Assert.Equal("v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=", response);
+            var response = wh.EndpointVerificationResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+            Assert.Equal("v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=", response);
         }
 
         [Fact]
@@ -234,11 +234,11 @@ namespace StandardWebhooks.Tests
         {
             var wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
             var challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
-            var header = "v1,SA7z49ZgIXsSQs4atO5vKlidKLJEqzwAg3sh8yfob9M=";
+            var header = "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=";
 
-            wh.VerifyChallengeResponse(challenge, header);
-            Assert.Throws<WebhookVerificationException>(() => wh.VerifyChallengeResponse(challenge, $"v2,abc {header}"));
-            Assert.Throws<WebhookVerificationException>(() => wh.VerifyChallengeResponse("wrong", header));
+            wh.VerifyEndpointVerificationResponse(challenge, header);
+            Assert.Throws<WebhookVerificationException>(() => wh.VerifyEndpointVerificationResponse(challenge, $"v2,abc {header}"));
+            Assert.Throws<WebhookVerificationException>(() => wh.VerifyEndpointVerificationResponse("wrong", header));
         }
     }
 }
