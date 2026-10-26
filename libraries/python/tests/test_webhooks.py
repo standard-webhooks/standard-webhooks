@@ -166,6 +166,32 @@ def test_multi_sig_payload_is_valid() -> None:
     assert json["test"] == 2432232314
 
 
+def test_malformed_signatures_are_skipped() -> None:
+    test_payload = PayloadForTesting()
+    sigs = [
+        "v1",
+        "v1,not-base64!",
+        "v1,a,b",
+        test_payload.header["webhook-signature"],  # valid signature
+    ]
+    test_payload.header["webhook-signature"] = " ".join(sigs)
+
+    wh = Webhook(test_payload.secret)
+
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+
+def test_valid_signature_with_unknown_version_fails() -> None:
+    test_payload = PayloadForTesting()
+    test_payload.header["webhook-signature"] = "v2," + test_payload.signature
+
+    wh = Webhook(test_payload.secret)
+
+    with pytest.raises(WebhookVerificationError):
+        wh.verify(test_payload.payload, test_payload.header)
+
+
 def test_signature_verification_with_and_without_prefix() -> None:
     test_payload = PayloadForTesting()
 

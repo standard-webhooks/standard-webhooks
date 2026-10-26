@@ -49,29 +49,15 @@ namespace StandardWebhooks
 
             var timestamp = Webhook.VerifyTimestamp(msgTimestamp);
 
-            var signature = this.Sign(msgId, timestamp, payload);
-            var expectedSignature = signature.Split(',')[1];
+            var expectedSignature = this.Sign(msgId, timestamp, payload);
 
             var passedSignatures = msgSignature.Split(' ');
             foreach (string versionedSignature in passedSignatures)
             {
-                var parts = versionedSignature.Split(',');
-                if (parts.Length < 2)
-                {
-                    throw new WebhookVerificationException("Invalid Signature Headers");
-                }
-                var version = parts[0];
-                var passedSignature = parts[1];
-
-                if (version != "v1")
-                {
-                    continue;
-                }
-                if (Utils.SecureCompare(expectedSignature, passedSignature))
+                if (Utils.SecureCompare(expectedSignature, versionedSignature))
                 {
                     return;
                 }
-
             }
             throw new WebhookVerificationException("No matching signature found");
         }

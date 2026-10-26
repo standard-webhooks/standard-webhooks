@@ -24,9 +24,7 @@ defmodule StandardWebhooks do
   defp verify_signature(payload, conn, secret) do
     {id, timestamp, header_signatures} = get_req_headers(conn)
 
-    signature =
-      sign(id, String.to_integer(timestamp), payload, secret)
-      |> split_signature_from_identifier()
+    signature = sign(id, String.to_integer(timestamp), payload, secret)
 
     valid_signatures?(header_signatures, signature)
   end
@@ -42,18 +40,10 @@ defmodule StandardWebhooks do
     end
   end
 
-  defp valid_signatures?([], _signature), do: false
-
-  defp valid_signatures?(signatures, signature) when signature >= 1 do
-    signatures
-    |> Enum.map(&split_signature_from_identifier/1)
+  defp valid_signatures?(header_signatures, signature) do
+    header_signatures
+    |> Enum.flat_map(&String.split(&1, " "))
     |> Enum.any?(&Plug.Crypto.secure_compare(&1, signature))
-  end
-
-  defp split_signature_from_identifier(signature) do
-    signature
-    |> String.split(",")
-    |> List.last()
   end
 
   def validate_timestamp(timestamp) do

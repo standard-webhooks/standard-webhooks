@@ -70,23 +70,14 @@ abstract class WebhookBase {
 
 		String expectedSignature;
 		try {
-			expectedSignature = this.sign(msgId, timestamp, payload).split(",")[1];
+			expectedSignature = this.sign(msgId, timestamp, payload);
 		} catch (WebhookSigningException e) {
 			throw new WebhookVerificationException("Failed to generate expected signature");
 		}
 
-		String[] msgSignatures = msgSignature.split(" ");
-		for (String versionedSignature : msgSignatures) {
-			String[] sigParts = versionedSignature.split(",");
-			if (sigParts.length < 2) {
-				continue;
-			}
-			String version = sigParts[0];
-			if (!version.equals("v1")) {
-				continue;
-			}
-			String signature = sigParts[1];
-			if (MessageDigest.isEqual(signature.getBytes(), expectedSignature.getBytes())) {
+		byte[] expected = expectedSignature.getBytes(StandardCharsets.UTF_8);
+		for (String versionedSignature : msgSignature.split(" ")) {
+			if (MessageDigest.isEqual(versionedSignature.getBytes(StandardCharsets.UTF_8), expected)) {
 				return;
 			}
 		}

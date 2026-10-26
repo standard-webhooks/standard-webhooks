@@ -43,20 +43,11 @@ class Webhook
 
         $timestamp = $this->verifyTimestamp($msgTimestamp);
 
-        $signature = $this->sign($msgId, $timestamp, $payload);
-        $expectedSignature = explode(',', $signature, 2)[1];
+        $expectedSignature = $this->sign($msgId, $timestamp, $payload);
 
         $passedSignatures = explode(' ', $msgSignature);
         foreach ($passedSignatures as $versionedSignature) {
-            $sigParts = explode(',', $versionedSignature, 2);
-            $version = $sigParts[0];
-            $passedSignature = $sigParts[1];
-
-            if (strcmp($version, "v1") !== 0) {
-                continue;
-            }
-
-            if (hash_equals($expectedSignature, $passedSignature)) {
+            if (hash_equals($expectedSignature, $versionedSignature)) {
                 return json_decode($payload, true);
             }
         }

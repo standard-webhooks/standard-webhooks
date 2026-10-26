@@ -90,31 +90,27 @@ export class Webhook {
 
     const timestamp = this.verifyTimestamp(msgTimestamp);
 
-    const computedSignature = this.sign(msgId, timestamp, payload);
-    const expectedSignature = computedSignature.split(",")[1];
+    const encoder = new globalThis.TextEncoder();
+    const expectedSignature = encoder.encode(this.sign(msgId, timestamp, payload));
 
     const passedSignatures = msgSignature.split(" ");
-
-    const encoder = new globalThis.TextEncoder();
-    for (const versionedSignature of passedSignatures) {
-      const [version, signature] = versionedSignature.split(",");
-      if (version !== "v1") {
-        continue;
-      }
-
-      if (timingSafeEqual(encoder.encode(signature), encoder.encode(expectedSignature))) {
-        const payloadString = payload.toString();
-        if (payloadString === "") {
-          return undefined;
-        }
-        if (jsonParse) {
-          return JSON.parse(payloadString);
-        } else {
-          return undefined;
-        }
-      }
+    if (
+      !passedSignatures.some((versionedSignature) =>
+        timingSafeEqual(encoder.encode(versionedSignature), expectedSignature)
+      )
+    ) {
+      throw new WebhookVerificationError("No matching signature found");
     }
-    throw new WebhookVerificationError("No matching signature found");
+
+    const payloadString = payload.toString();
+    if (payloadString === "") {
+      return undefined;
+    }
+    if (jsonParse) {
+      return JSON.parse(payloadString);
+    } else {
+      return undefined;
+    }
   }
 
   public sign(msgId: string, timestamp: Date, payload: string | Buffer): string {

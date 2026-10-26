@@ -164,6 +164,43 @@ describe StandardWebhooks::Webhook do
     expect(json["test"]).to eq(2432232314)
   end
 
+  it "malformed signatures are skipped" do
+    testPayload = TestPayload.new
+    sigs = [
+      "v1",
+      "v1,not-base64!",
+      testPayload.headers["webhook-signature"] # valid signature
+    ]
+    testPayload.headers["webhook-signature"] = sigs.join(" ")
+
+    wh = StandardWebhooks::Webhook.new(testPayload.secret)
+
+    json = wh.verify(testPayload.payload, testPayload.headers)
+    expect(json["test"]).to eq(2432232314)
+  end
+
+  it "valid signature with an unknown version raises error" do
+    testPayload = TestPayload.new
+    testPayload.headers["webhook-signature"] = "v2,#{testPayload.signature}"
+
+    wh = StandardWebhooks::Webhook.new(testPayload.secret)
+
+    expect {
+      wh.verify(testPayload.payload, testPayload.headers)
+    }.to raise_error(StandardWebhooks::WebhookVerificationError)
+  end
+
+  it "signature with a version and no signature raises error" do
+    testPayload = TestPayload.new
+    testPayload.headers["webhook-signature"] = "v1"
+
+    wh = StandardWebhooks::Webhook.new(testPayload.secret)
+
+    expect {
+      wh.verify(testPayload.payload, testPayload.headers)
+    }.to raise_error(StandardWebhooks::WebhookVerificationError)
+  end
+
   it "signature verification works with and without prefix" do
     testPayload = TestPayload.new
 
