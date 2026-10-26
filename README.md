@@ -52,6 +52,7 @@ There are reference implementations for the signature verification theme for a v
 - [Haskell](https://github.com/MercuryTechnologies/signet)
 - [Java](https://github.com/Cosium/standard-webhooks-consumer)
 - [Swift](https://github.com/m1guelpf/swift-standard-webhooks)
+- [TypeScript (sender, PostgreSQL outbox)](https://github.com/pplytas/good-webhooks)
 
 
 ## Tools
