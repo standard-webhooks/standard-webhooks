@@ -84,14 +84,22 @@ defmodule StandardWebhooks do
   end
 
   def sign(id, timestamp, payload, @secret_prefix <> secret) do
-    sign(id, timestamp, payload, secret)
-  end
-
-  def sign(_id, _timestamp, _payload, secret) when secret == "" do
-    raise ArgumentError, message: "Secret must not be empty"
+    sign_unprefixed(id, timestamp, payload, secret)
   end
 
   def sign(id, timestamp, payload, secret) do
+    sign_unprefixed(id, timestamp, payload, secret)
+  end
+
+  defp sign_unprefixed(_id, _timestamp, _payload, "") do
+    raise ArgumentError, message: "Secret must not be empty"
+  end
+
+  defp sign_unprefixed(_id, _timestamp, _payload, @secret_prefix <> _secret) do
+    raise ArgumentError, message: "Secret has a duplicate \"#{@secret_prefix}\" prefix"
+  end
+
+  defp sign_unprefixed(id, timestamp, payload, secret) do
     sign_with_version(id, timestamp, payload, secret)
   end
 

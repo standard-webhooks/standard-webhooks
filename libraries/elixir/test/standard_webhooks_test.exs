@@ -87,16 +87,22 @@ defmodule StandardWebhooksTest do
         StandardWebhooks.sign(@id, @timestamp, @payload, @secret_prefix)
       end
     end
+
+    test "raises error when secret has a duplicate prefix" do
+      assert_raise ArgumentError, ~s(Secret has a duplicate "whsec_" prefix), fn ->
+        StandardWebhooks.sign(@id, @timestamp, @payload, @secret_prefix <> @prefixed_secret)
+      end
+    end
   end
 
-  describe "verify/2" do
+  describe "verify/3" do
     setup do
       signature = StandardWebhooks.sign(@id, @timestamp, @payload, @secret)
 
       {:ok, signature: signature}
     end
 
-    test "fail true when empty encoded_secret and signature", %{signature: signature} do
+    test "raises error when empty secret", %{signature: signature} do
       conn = setup_webhook(signature)
 
       assert_raise ArgumentError, "Secret must not be empty", fn ->
