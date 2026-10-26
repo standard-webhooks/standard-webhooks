@@ -10,7 +10,7 @@ defmodule StandardWebhooksTest do
   @payload %{"event_type" => "ping"}
   @secret_prefix "whsec_"
   @secret "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-  @encoded_secret @secret_prefix <> Base.encode64(@secret)
+  @prefixed_secret @secret_prefix <> @secret
 
   describe "sign/4" do
     test "raises error when message id is not a String" do
@@ -67,25 +67,42 @@ defmodule StandardWebhooksTest do
       assert is_binary(decoded_signature)
     end
 
-    test "returns valid signature when encoded secret" do
+    test "returns valid signature when prefixed secret" do
       [signature_identifier, signature] =
-        StandardWebhooks.sign(@id, @timestamp, @payload, @encoded_secret) |> String.split(",")
+        StandardWebhooks.sign(@id, @timestamp, @payload, @prefixed_secret) |> String.split(",")
 
       {:ok, decoded_signature} = Base.decode64(signature)
 
       assert "v1" == signature_identifier
       assert is_binary(decoded_signature)
     end
+
+    test "returns the same signature for prefixed and unprefixed secret" do
+      assert StandardWebhooks.sign(@id, @timestamp, @payload, @prefixed_secret) ==
+               StandardWebhooks.sign(@id, @timestamp, @payload, @secret)
+    end
+
+    test "raises error when prefixed secret is empty" do
+      assert_raise ArgumentError, "Secret must not be empty", fn ->
+        StandardWebhooks.sign(@id, @timestamp, @payload, @secret_prefix)
+      end
+    end
+
+    test "raises error when secret has a duplicate prefix" do
+      assert_raise ArgumentError, ~s(Secret has a duplicate "whsec_" prefix), fn ->
+        StandardWebhooks.sign(@id, @timestamp, @payload, @secret_prefix <> @prefixed_secret)
+      end
+    end
   end
 
-  describe "verify/2" do
+  describe "verify/3" do
     setup do
       signature = StandardWebhooks.sign(@id, @timestamp, @payload, @secret)
 
       {:ok, signature: signature}
     end
 
-    test "fail true when empty encoded_secret and signature", %{signature: signature} do
+    test "raises error when empty secret", %{signature: signature} do
       conn = setup_webhook(signature)
 
       assert_raise ArgumentError, "Secret must not be empty", fn ->
@@ -93,10 +110,10 @@ defmodule StandardWebhooksTest do
       end
     end
 
-    test "return true when valid encoded_secret and signature", %{signature: signature} do
+    test "return true when valid prefixed_secret and signature", %{signature: signature} do
       conn = setup_webhook(signature)
 
-      assert StandardWebhooks.verify(@payload, conn, @encoded_secret)
+      assert StandardWebhooks.verify(@payload, conn, @prefixed_secret)
     end
 
     test "return true when valid secret and signature", %{signature: signature} do
