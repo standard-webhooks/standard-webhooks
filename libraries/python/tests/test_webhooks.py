@@ -1,3 +1,4 @@
+import array
 import base64
 import typing as t
 from datetime import datetime, timedelta, timezone
@@ -370,6 +371,6 @@ def test_sign_function_bytes_like_payloads() -> None:
 def test_sign_function_rejects_non_bytes_payload() -> None:
     wh = Webhook("whsec_" + DEFAULT_SECRET)
 
-    for payload in (5, [1, 2], {"test": 1}, None):
+    for payload in (5, [1, 2], {"test": 1}, None, memoryview(array.array("H", [1, 2]))):
         with pytest.raises(TypeError):
             wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=t.cast(t.Any, payload))

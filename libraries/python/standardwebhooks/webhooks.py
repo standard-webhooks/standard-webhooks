@@ -16,8 +16,10 @@ def _payload_bytes(data: t.Union[bytes, str]) -> bytes:
     if isinstance(data, str):
         return data.encode()
     # Only bytes-like objects: bytes() also turns an int or a list of ints into bytes, which
-    # would sign unrelated bytes instead of failing.
-    if isinstance(data, (bytes, bytearray, memoryview)):
+    # would sign unrelated bytes instead of failing. A memoryview must be over single bytes; one
+    # over wider items (e.g. memoryview(array.array("H", ...))) is rejected rather than signed
+    # as its platform-endian underlying bytes.
+    if isinstance(data, (bytes, bytearray)) or (isinstance(data, memoryview) and data.itemsize == 1):
         return bytes(data)
     raise TypeError("Expected payload to be of type str or bytes")
 
