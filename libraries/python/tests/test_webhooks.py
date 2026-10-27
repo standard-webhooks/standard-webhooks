@@ -345,3 +345,31 @@ def test_json_payload_as_bytes_returns_json() -> None:
 
     json = wh.verify(test_payload.payload.encode(), test_payload.header)
     assert json["test"] == 2432232314
+
+
+def test_json_payload_as_bytes_with_utf8_bom_returns_json() -> None:
+    timestamp = str(floor(datetime.now(tz=timezone.utc).timestamp()))
+    json_bytes = b'{"test": 2432232314}'
+    payload = b"\xef\xbb\xbf" + json_bytes
+    wh = Webhook(DEFAULT_SECRET)
+
+    # The BOM is signed like any other bytes; only the JSON parse skips it.
+    assert wh.verify(payload, binary_header(timestamp, payload)) == {"test": 2432232314}
+    with pytest.raises(WebhookVerificationError):
+        wh.verify(json_bytes, binary_header(timestamp, payload))
+
+
+def test_sign_function_bytes_like_payloads() -> None:
+    wh = Webhook("whsec_" + DEFAULT_SECRET)
+
+    for payload in (bytearray(BINARY_PAYLOAD), memoryview(BINARY_PAYLOAD)):
+        signature = wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=t.cast(t.Any, payload))
+        assert signature == BINARY_PAYLOAD_SIGNATURE
+
+
+def test_sign_function_rejects_non_bytes_payload() -> None:
+    wh = Webhook("whsec_" + DEFAULT_SECRET)
+
+    for payload in (5, [1, 2], {"test": 1}, None):
+        with pytest.raises(TypeError):
+            wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=SIGN_TIMESTAMP, data=t.cast(t.Any, payload))

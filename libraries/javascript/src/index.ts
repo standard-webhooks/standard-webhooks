@@ -42,8 +42,10 @@ function payloadBytes(payload: string | Uint8Array): Uint8Array {
     return new TextEncoder().encode(payload);
   }
   // `ArrayBuffer.isView` rather than `instanceof Uint8Array`, so a Buffer or Uint8Array from
-  // another realm (e.g. a test runner's VM context) is still accepted.
-  if (ArrayBuffer.isView(payload)) {
+  // another realm (e.g. a test runner's VM context) is still accepted. Only byte views: a
+  // DataView or a wider typed array (e.g. Uint16Array) is rejected rather than signed as its
+  // platform-endian underlying bytes.
+  if (ArrayBuffer.isView(payload) && payload.BYTES_PER_ELEMENT === 1) {
     return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
   }
   throw new Error("Expected payload to be of type string, Buffer or Uint8Array.");

@@ -335,6 +335,12 @@ test("sign rejects a payload that is not a string or bytes", () => {
   assert.throws(() => {
     wh.sign(defaultMsgID, signTimestamp, { test: 1 } as any);
   }, Error);
+  assert.throws(() => {
+    wh.sign(defaultMsgID, signTimestamp, Uint16Array.from([1, 2]) as any);
+  }, Error);
+  assert.throws(() => {
+    wh.sign(defaultMsgID, signTimestamp, new DataView(binaryPayload.buffer) as any);
+  }, Error);
 });
 
 test("binary payload is valid", () => {
@@ -370,6 +376,21 @@ test("JSON payload as Uint8Array is valid and returns valid json", () => {
     testPayload.header
   );
   assert.deepEqual(json, { test: 2432232314 });
+});
+
+test("JSON payload as Uint8Array with a UTF-8 BOM returns valid json", () => {
+  const wh = new Webhook(defaultSecret);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const json = new TextEncoder().encode('{"test": 2432232314}');
+  const payload = new Uint8Array([0xef, 0xbb, 0xbf, ...json]);
+
+  // The BOM is signed like any other bytes; only the JSON parse skips it.
+  assert.deepEqual(wh.verify(payload, binaryHeader(timestamp, payload)), {
+    test: 2432232314,
+  });
+  assert.throws(() => {
+    wh.verify(json, binaryHeader(timestamp, payload));
+  }, WebhookVerificationError);
 });
 
 test("empty Uint8Array payload returns undefined", () => {

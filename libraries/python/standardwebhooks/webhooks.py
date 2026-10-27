@@ -13,7 +13,13 @@ def hmac_data(key: bytes, data: bytes) -> bytes:
 
 def _payload_bytes(data: t.Union[bytes, str]) -> bytes:
     """The payload as signed: the body bytes exactly as received. A str is encoded as UTF-8."""
-    return data.encode() if isinstance(data, str) else bytes(data)
+    if isinstance(data, str):
+        return data.encode()
+    # Only bytes-like objects: bytes() also turns an int or a list of ints into bytes, which
+    # would sign unrelated bytes instead of failing.
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        return bytes(data)
+    raise TypeError("Expected payload to be of type str or bytes")
 
 
 class WebhookVerificationError(Exception):
