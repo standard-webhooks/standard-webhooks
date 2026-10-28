@@ -247,3 +247,44 @@ def test_sign_function() -> None:
     wh = Webhook(key)
     signature = wh.sign(msg_id=msg_id, timestamp=timestamp, data=payload)
     assert signature == expected
+
+
+def test_sign_function_with_non_utc_timezone_aware_timestamp() -> None:
+    # The signature must depend on the instant, not on the timezone the datetime is expressed in.
+    key = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+    msg_id = "msg_p5jXN8AQM9LWM0D4loKWxJek"
+    payload = '{"test": 2432232314}'
+    expected = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
+
+    wh = Webhook(key)
+    utc_timestamp = datetime.fromtimestamp(1614265330, tz=timezone.utc)
+    for offset_hours in (-5, 7, 13):
+        local_timestamp = utc_timestamp.astimezone(timezone(timedelta(hours=offset_hours)))
+        signature = wh.sign(msg_id=msg_id, timestamp=local_timestamp, data=payload)
+        assert signature == expected
+
+
+def test_sign_function_with_naive_timestamp_is_treated_as_utc() -> None:
+    key = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+    msg_id = "msg_p5jXN8AQM9LWM0D4loKWxJek"
+    payload = '{"test": 2432232314}'
+    expected = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
+
+    wh = Webhook(key)
+    naive_utc_timestamp = datetime(2021, 2, 25, 15, 2, 10)  # 1614265330 as a naive UTC wall-clock time
+    signature = wh.sign(msg_id=msg_id, timestamp=naive_utc_timestamp, data=payload)
+    assert signature == expected
+
+
+def test_verify_accepts_signature_made_with_non_utc_timezone_aware_timestamp() -> None:
+    wh = Webhook(DEFAULT_SECRET)
+    local_now = datetime.now(tz=timezone(timedelta(hours=7)))
+    signature = wh.sign(msg_id=DEFAULT_MSG_ID, timestamp=local_now, data=DEFAULT_PAYLOAD)
+    headers = {
+        "webhook-id": DEFAULT_MSG_ID,
+        "webhook-timestamp": str(floor(local_now.timestamp())),
+        "webhook-signature": signature,
+    }
+
+    json = wh.verify(DEFAULT_PAYLOAD, headers)
+    assert json["test"] == 2432232314
