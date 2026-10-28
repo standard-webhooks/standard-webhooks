@@ -46,6 +46,8 @@ use `#endpoint_verification_response` when the request includes a `webhook-chall
 challenge = request_headers['webhook-challenge']
 if challenge
 	response_headers['webhook-challenge-response'] = webhook.endpoint_verification_response(challenge)
+	# Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+	return
 end
 ```
 

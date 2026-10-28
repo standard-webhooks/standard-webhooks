@@ -16,6 +16,9 @@ Responding to [endpoint verification](../../spec/extensions/endpoint-verificatio
 ```php
 if (isset($webhookHeaders['webhook-challenge'])) {
     header('webhook-challenge-response: ' . $wh->endpointVerificationResponse($webhookHeaders['webhook-challenge']));
+    // Not a webhook delivery: respond without processing the body
+    http_response_code(204);
+    exit;
 }
 ```
 

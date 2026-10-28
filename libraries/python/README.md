@@ -21,6 +21,8 @@ Responding to [endpoint verification](../../spec/extensions/endpoint-verificatio
 challenge = webhook_headers.get("webhook-challenge")
 if challenge:
     response_headers["webhook-challenge-response"] = wh.endpoint_verification_response(challenge)
+    # Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+    return
 ```
 
 Verifying the response as a producer (raises `WebhookVerificationError` if it doesn't match):

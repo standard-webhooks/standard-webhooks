@@ -28,9 +28,13 @@ The scheme below solves both by requiring the consumer to sign the challenge usi
 
 ### The challenge
 
-The producer requests endpoint verification by including the `webhook-challenge` header in a dedicated `POST` request to the endpoint. This specification doesn't dictate the body of the request.
+The producer requests endpoint verification by including the `webhook-challenge` header in a dedicated `POST` request to the endpoint. Producers must not include the `webhook-challenge` header in a request that also delivers a webhook. This specification doesn't dictate the body of the request.
 
-The request should be signed like any other webhook (with the `webhook-id`, `webhook-timestamp` and `webhook-signature` headers), so that it passes through any verification the consumer already has in place. However, verifying it before responding to the challenge is not required, and is up to the consumer.
+The request should be signed like any other webhook (with the `webhook-id`, `webhook-timestamp` and `webhook-signature` headers), so that it passes through any verification the consumer already has in place.
+
+A request carrying the `webhook-challenge` header is not a webhook delivery. Consumers that receive one must not process its body as a webhook; the only required behavior is to respond with the `webhook-challenge-response` header, as described below.
+
+Consumers should always respond to the challenge. Verifying the request first is not required, and if a consumer does verify it, it should respond to the challenge even if verification fails (e.g. due to an expired timestamp). This is safe, as the response isn't useful for anything other than passing endpoint verification for this endpoint (see [additional notes](#additional-notes)).
 
 For example:
 
@@ -68,7 +72,7 @@ The consumer then includes the `webhook-challenge-response` header, set to the s
 webhook-challenge-response: v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=
 ```
 
-The response body is ignored.
+The response body serves no purpose and is ignored by the producer, so there's no need to generate one: a `204 No Content` response with just the header is enough. Consumers can also respond with a `200 OK` (or any other `2xx` status) and whatever body they like, as it will be ignored all the same.
 
 Unlike the `webhook-signature` header, `webhook-challenge-response` contains a single signature, calculated with the key the consumer holds. A consumer that holds more than one key (e.g. in the middle of a key rotation) should use the newest one. It's the producer, which knows all of the endpoint's active keys, that checks the response against each of them.
 
@@ -78,7 +82,11 @@ Libraries implementing this extension should expose a function that takes the ch
 const challenge = request.headers["webhook-challenge"]
 if (challenge) {
   response.headers["webhook-challenge-response"] = wh.endpointVerificationResponse(challenge)
+  // Not a webhook delivery: respond without processing the body
+  return response.status(204).send()
 }
+
+// Not a challenge: verify and process the webhook as usual
 ```
 
 ### Verifying the response
@@ -134,6 +142,6 @@ webhook-challenge-response: v1a,gqeVxLN/gmCkegcKykCxU5iU5Q5Zojs5tqpEXGv6To8=
 
 ## Additional notes
 
-- Endpoint verification uses a separate key domain (derived from the key using `wev-v1`) so that it doesn't expose a signing oracle signing attacker-chosen data. This is also why consumers don't have to verify the request before responding to the challenge: the response isn't useful for anything other than passing endpoint verification for this endpoint.
+- Endpoint verification uses a separate key domain (derived from the key using `wev-v1`) so that it doesn't expose a signing oracle signing attacker-chosen data. This is also why consumers can respond to the challenge without verifying the request: the response isn't useful for anything other than passing endpoint verification for this endpoint.
 - Asymmetric keys: anyone who knows the public key can calculate the response, and that's fine. The goals are met by the endpoint itself calculating it, which shows that its operator configured this specific key, and since keys are unique per endpoint, it can't be used to pass checks for anyone else's registration.
-- Headers only: the challenge and the response are deliberately passed in headers, so the verification request can have whatever body the producer wants, and the consumer can respond with whatever body it wants.
+- Headers only: the challenge and the response are deliberately passed in headers, so the body of the request and of the response play no part in the check. This lets producers send whatever body they want (e.g. to fit their existing delivery pipeline), while consumers just ignore it.

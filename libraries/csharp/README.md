@@ -18,6 +18,9 @@ var challenge = webhookHeaders.Get("webhook-challenge");
 if (challenge != null)
 {
     response.Headers["webhook-challenge-response"] = wh.EndpointVerificationResponse(challenge);
+    // Not a webhook delivery: respond without processing the body
+    response.StatusCode = 204;
+    return;
 }
 ```
 

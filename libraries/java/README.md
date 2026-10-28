@@ -17,6 +17,9 @@ Responding to [endpoint verification](../../spec/extensions/endpoint-verificatio
 String challenge = request.getHeader("webhook-challenge");
 if (challenge != null) {
     response.setHeader("webhook-challenge-response", webhook.endpointVerificationResponse(challenge));
+    // Not a webhook delivery: respond without processing the body
+    response.setStatus(204);
+    return;
 }
 ```
 

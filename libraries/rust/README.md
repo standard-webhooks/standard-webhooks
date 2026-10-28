@@ -22,6 +22,8 @@ if let Some(challenge) = request_headers.get(HEADER_WEBHOOK_CHALLENGE) {
         HEADER_WEBHOOK_CHALLENGE_RESPONSE,
         wh.endpoint_verification_response(challenge).parse().unwrap(),
     );
+    // Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+    return;
 }
 ```
 

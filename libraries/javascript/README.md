@@ -21,6 +21,8 @@ Responding to [endpoint verification](../../spec/extensions/endpoint-verificatio
 const challenge = webhook_headers["webhook-challenge"];
 if (challenge) {
   response_headers["webhook-challenge-response"] = wh.endpointVerificationResponse(challenge);
+  // Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+  return;
 }
 ```
 

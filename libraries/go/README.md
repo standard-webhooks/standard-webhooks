@@ -18,6 +18,9 @@ Responding to [endpoint verification](../../spec/extensions/endpoint-verificatio
 ```go
 if challenge := r.Header.Get(standardwebhooks.HeaderWebhookChallenge); challenge != "" {
     w.Header().Set(standardwebhooks.HeaderWebhookChallengeResponse, wh.EndpointVerificationResponse(challenge))
+    // Not a webhook delivery: respond without processing the body
+    w.WriteHeader(http.StatusNoContent)
+    return
 }
 ```
 
