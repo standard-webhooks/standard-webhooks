@@ -92,7 +92,7 @@ class Webhook:
             raise WebhookVerificationError("No matching signature found")
 
         if json_parse:
-            return json.loads(data if isinstance(data, str) else payload)
+            return json.loads(payload)
 
     def sign(self, msg_id: str, timestamp: datetime, data: t.Union[bytes, str]) -> str:
         """
