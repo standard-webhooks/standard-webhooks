@@ -247,4 +247,24 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $this->expectException(\StandardWebhooks\Exception\EmptyWebhookSecretException::class);
         new \StandardWebhooks\Webhook("whsec_");
     }
+
+    public function testFromRawSecretVerifies()
+    {
+        $testPayload = new TestPayload(time());
+
+        $wh = \StandardWebhooks\Webhook::fromRaw(base64_decode($testPayload->secret));
+        $json = $wh->verify($testPayload->payload, $testPayload->header);
+
+        $this->assertEquals(
+            $json['test'],
+            2432232315,
+            "did not return expected json"
+        );
+    }
+
+    public function testFromRawRejectsEmptySecret()
+    {
+        $this->expectException(\StandardWebhooks\Exception\EmptyWebhookSecretException::class);
+        \StandardWebhooks\Webhook::fromRaw("");
+    }
 }
