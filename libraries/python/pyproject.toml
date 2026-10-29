@@ -41,7 +41,7 @@ Issues = "https://github.com/standard-webhooks/standard-webhooks/issues"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.4.0",
+    "mypy>=2.4.0",
     "pytest",
     "ruff>=0.1.8",
     "ty>=0.0.32"
