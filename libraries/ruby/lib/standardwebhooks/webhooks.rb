@@ -24,6 +24,9 @@ module StandardWebhooks
     end
 
     def verify(payload, headers)
+      # normalize headers as they are case-insensitive
+      headers = headers.transform_keys(&:downcase)
+
       msg_id = headers["webhook-id"]
       msg_signature = headers["webhook-signature"]
       msg_timestamp = headers["webhook-timestamp"]

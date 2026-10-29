@@ -28,6 +28,9 @@ class Webhook
 
     public function verify($payload, $headers)
     {
+        // normalize headers as they are case-insensitive
+        $headers = array_change_key_case($headers, CASE_LOWER);
+
         if (
             isset($headers['webhook-id'])
             && isset($headers['webhook-timestamp'])
