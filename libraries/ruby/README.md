@@ -37,6 +37,27 @@ puts payload['type']
 Pass the raw body exactly as received. Verifying a parsed-and-reserialized JSON body
 can fail because the signature is computed over the original bytes.
 
+## Responding to endpoint verification
+
+To support the [endpoint verification](../../spec/extensions/endpoint-verification.md) extension,
+use `#endpoint_verification_response` when the request includes a `webhook-challenge` header:
+
+```ruby
+challenge = request_headers['webhook-challenge']
+if challenge
+	response_headers['webhook-challenge-response'] = webhook.endpoint_verification_response(challenge)
+	# Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+	return
+end
+```
+
+Producers can verify the response with `#verify_endpoint_verification_response`, which raises
+`StandardWebhooks::WebhookVerificationError` if it doesn't match:
+
+```ruby
+webhook.verify_endpoint_verification_response(challenge, response_headers['webhook-challenge-response'])
+```
+
 ## Rails example
 
 ```ruby

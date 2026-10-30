@@ -16,6 +16,27 @@ Signing a webhook
 StandardWebhooks.sign(webhook_id, webhook_timestamp, webhook_payload, webhook_secret)
 ```
 
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
+
+```elixir
+case Plug.Conn.get_req_header(conn, "webhook-challenge") do
+  [challenge] ->
+    response = StandardWebhooks.endpoint_verification_response(challenge, webhook_secret)
+
+    # Not a webhook delivery: respond without processing the body
+    conn
+    |> Plug.Conn.put_resp_header("webhook-challenge-response", response)
+    |> Plug.Conn.send_resp(204, "")
+    |> Plug.Conn.halt()
+
+  _ ->
+    # Not a challenge: verify and process the webhook as usual
+    handle_webhook(conn)
+end
+```
+
+Producers can verify the `webhook-challenge-response` header with `StandardWebhooks.verify_endpoint_verification_response(challenge, header, webhook_secret)`.
+
 # Development
 
 ## Installation

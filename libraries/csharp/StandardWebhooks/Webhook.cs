@@ -98,5 +98,45 @@ namespace StandardWebhooks
                 return $"v1,{signature}";
             }
         }
+
+        /// <summary>
+        /// Calculates the response to an endpoint verification challenge.
+        /// </summary>
+        /// <param name="challenge">The value of the webhook-challenge request header.</param>
+        /// <returns>The value for the webhook-challenge-response response header.</returns>
+        public string EndpointVerificationResponse(string challenge)
+        {
+            byte[] verificationKey;
+            using (var hmac = new HMACSHA256(this.key))
+            {
+                verificationKey = hmac.ComputeHash(SafeUTF8Encoding.GetBytes("wev-v1"));
+            }
+            using (var hmac = new HMACSHA256(verificationKey))
+            {
+                var hash = hmac.ComputeHash(SafeUTF8Encoding.GetBytes(challenge));
+                var signature = Convert.ToBase64String(hash);
+                return $"v1,{signature}";
+            }
+        }
+
+        /// <summary>
+        /// Verifies the response to an endpoint verification challenge.
+        /// </summary>
+        /// <param name="challenge">The challenge sent in the webhook-challenge request header.</param>
+        /// <param name="header">The value of the webhook-challenge-response response header.</param>
+        public void VerifyEndpointVerificationResponse(string challenge, string header)
+        {
+            if (String.IsNullOrEmpty(challenge) || String.IsNullOrEmpty(header))
+            {
+                throw new WebhookVerificationException("Missing challenge response");
+            }
+
+            var expectedSignature = this.EndpointVerificationResponse(challenge);
+
+            if (!Utils.SecureCompare(expectedSignature, header))
+            {
+                throw new WebhookVerificationException("No matching signature found");
+            }
+        }
     }
 }

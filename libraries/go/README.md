@@ -13,6 +13,19 @@ wh, err := standardwebhooks.NewWebhook(base64Secret)
 err = wh.Verify(webhookPayload, webhookHeaders)
 ```
 
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
+
+```go
+if challenge := r.Header.Get(standardwebhooks.HeaderWebhookChallenge); challenge != "" {
+    w.Header().Set(standardwebhooks.HeaderWebhookChallengeResponse, wh.EndpointVerificationResponse(challenge))
+    // Not a webhook delivery: respond without processing the body
+    w.WriteHeader(http.StatusNoContent)
+    return
+}
+```
+
+Producers can verify the `webhook-challenge-response` header with `wh.VerifyEndpointVerificationResponse(challenge, header)`.
+
 # Development
 
 ## Requirements

@@ -149,6 +149,40 @@ export class Webhook {
     return `v1,${expectedSignature}`;
   }
 
+  /** Calculate the response to an endpoint verification challenge.
+   *
+   * @param challenge The value of the `webhook-challenge` request header
+   * @returns The value for the `webhook-challenge-response` response header
+   */
+  public endpointVerificationResponse(challenge: string): string {
+    const encoder = new TextEncoder();
+    const verificationKey = sha256.hmac(this.key, encoder.encode("wev-v1"));
+    const signature = base64.encode(
+      sha256.hmac(verificationKey, encoder.encode(challenge))
+    );
+    return `v1,${signature}`;
+  }
+
+  /** Verify the response to an endpoint verification challenge.
+   *
+   * @param challenge The challenge sent in the `webhook-challenge` request header
+   * @param header The value of the `webhook-challenge-response` response header
+   * @throws `WebhookVerificationError` if no matching signature is found
+   */
+  public verifyEndpointVerificationResponse(challenge: string, header: string): void {
+    if (!header) {
+      throw new WebhookVerificationError("Missing challenge response");
+    }
+
+    const encoder = new globalThis.TextEncoder();
+    const expectedSignature = encoder.encode(
+      this.endpointVerificationResponse(challenge)
+    );
+    if (!timingSafeEqual(encoder.encode(header), expectedSignature)) {
+      throw new WebhookVerificationError("No matching signature found");
+    }
+  }
+
   private verifyTimestamp(timestampHeader: string): Date {
     const now = Math.floor(Date.now() / 1000);
     const timestamp = parseInt(timestampHeader, 10);

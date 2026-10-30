@@ -236,6 +236,44 @@ final class WebhookTest extends \PHPUnit\Framework\TestCase
         $signature = $wh->sign($msgId, $timestamp, $payload);
     }
 
+    public function testChallengeResponse()
+    {
+        $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+        $response = $wh->endpointVerificationResponse("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=");
+        $this->assertEquals("v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=", $response);
+    }
+
+    public function testVerifyChallengeResponse()
+    {
+        $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+        $challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
+        $header = "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=";
+
+        $wh->verifyEndpointVerificationResponse($challenge, $header);
+        $this->addToAssertionCount(1);
+    }
+
+    public function testVerifyChallengeResponseRejectsLists()
+    {
+        $this->expectException(\StandardWebhooks\Exception\WebhookVerificationException::class);
+        $this->expectExceptionMessage("No matching signature found");
+
+        $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+        $wh->verifyEndpointVerificationResponse(
+            "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
+            "v2,abc v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
+        );
+    }
+
+    public function testVerifyChallengeResponseRejectsWrongChallenge()
+    {
+        $this->expectException(\StandardWebhooks\Exception\WebhookVerificationException::class);
+        $this->expectExceptionMessage("No matching signature found");
+
+        $wh = new \StandardWebhooks\Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+        $wh->verifyEndpointVerificationResponse("wrong", "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=");
+    }
+
     public function testRejectsEmptySecret()
     {
         $this->expectException(\StandardWebhooks\Exception\EmptyWebhookSecretException::class);

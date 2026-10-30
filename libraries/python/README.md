@@ -15,6 +15,22 @@ wh.verify(webhook_payload, webhook_headers)
 Pass it as `bytes` to verify the bytes as sent, including bodies that aren't valid UTF-8. A
 `str` is verified as its UTF-8 encoding.
 
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
+
+```python
+challenge = webhook_headers.get("webhook-challenge")
+if challenge:
+    response_headers["webhook-challenge-response"] = wh.endpoint_verification_response(challenge)
+    # Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+    return
+```
+
+Verifying the response as a producer (raises `WebhookVerificationError` if it doesn't match):
+
+```python
+wh.verify_endpoint_verification_response(challenge, response_headers["webhook-challenge-response"])
+```
+
 # Development
 
 ## Requirements

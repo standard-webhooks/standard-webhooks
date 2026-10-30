@@ -61,6 +61,28 @@ module StandardWebhooks
       "v1,#{signature}"
     end
 
+    # Calculate the response to an endpoint verification challenge. Takes the value of the
+    # `webhook-challenge` request header and returns the value for the
+    # `webhook-challenge-response` response header.
+    def endpoint_verification_response(challenge)
+      verification_key = OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), @secret, "wev-v1")
+      digest = OpenSSL::HMAC.digest(OpenSSL::Digest.new("sha256"), verification_key, challenge)
+      signature = Base64.encode64(digest).strip
+
+      "v1,#{signature}"
+    end
+
+    # Verify the response to an endpoint verification challenge. Takes the challenge sent in
+    # the `webhook-challenge` request header and the value of the `webhook-challenge-response`
+    # response header. Raises WebhookVerificationError if no matching signature is found.
+    def verify_endpoint_verification_response(challenge, header)
+      signature = endpoint_verification_response(challenge)
+
+      unless ::StandardWebhooks.secure_compare(header, signature)
+        raise WebhookVerificationError, "No matching signature found"
+      end
+    end
+
     SECRET_PREFIX = "whsec_"
     TOLERANCE = 5 * 60
     private_constant :SECRET_PREFIX, :TOLERANCE

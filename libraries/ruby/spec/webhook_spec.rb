@@ -224,4 +224,39 @@ describe StandardWebhooks::Webhook do
     signature = wh.sign(msg_id, timestamp, payload)
     expect(signature).to eq(expected)
   end
+
+  it "challenge response matches test vector" do
+    wh = StandardWebhooks::Webhook.new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    response = wh.endpoint_verification_response("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=")
+    expect(response).to eq("v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=")
+  end
+
+  it "verify challenge response accepts test vector" do
+    wh = StandardWebhooks::Webhook.new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+    header = "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
+    expect { wh.verify_endpoint_verification_response(challenge, header) }.not_to raise_error
+  end
+
+  it "verify challenge response rejects wrong challenge" do
+    wh = StandardWebhooks::Webhook.new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    challenge = "1njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+    header = "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
+    expect { wh.verify_endpoint_verification_response(challenge, header) }
+      .to raise_error(StandardWebhooks::WebhookVerificationError)
+  end
+
+  it "verify challenge response rejects lists" do
+    wh = StandardWebhooks::Webhook.new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw")
+    challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+    header = "v2,abc v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
+    expect { wh.verify_endpoint_verification_response(challenge, header) }
+      .to raise_error(StandardWebhooks::WebhookVerificationError)
+  end
+
+  it "challenge response depends on the secret" do
+    wh = StandardWebhooks::Webhook.new("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSx")
+    response = wh.endpoint_verification_response("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=")
+    expect(response).not_to eq("v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=")
+  end
 end
