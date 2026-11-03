@@ -21,9 +21,7 @@ class Webhook
 
     public static function fromRaw($secret)
     {
-        $obj = new self('');
-        $obj->secret = $secret;
-        return $obj;
+        return new self(base64_encode($secret));
     }
 
     public function verify($payload, $headers)
