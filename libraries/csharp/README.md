@@ -35,7 +35,7 @@ wh.VerifyEndpointVerificationResponse(challenge, responseHeader);
 
 ## Requirements
 
- - Dotnet >=5.0
+ - Dotnet >=10.0
 
 ## Building the library
 ```sh
