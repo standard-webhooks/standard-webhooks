@@ -202,7 +202,7 @@ The "signature identifier" is the version identifier prefixed to signatures when
 
 #### Webhook headers (sending metadata to consumers)
 
-As discussed above, the webhook payload should be sent as the body of an HTTP POST request, which means that additional webhook data should be sent as part of the headers.
+As discussed above, the webhook payload should be sent as the body of an HTTP PUT request, which means that additional webhook data should be sent as part of the headers.
 
 All of the headers should be prefixed with `webhook-` and follow the exact naming as below.
 
@@ -299,7 +299,7 @@ Some webhook consumers have firewalls (or other security mechanisms) in front of
 
 #### Server side request forgery (SSRF)
 
-A server-side request forgery (SSRF) attack is when an attacker abuses functionality on the server to read or update internal resources. In the attack, the attacker supplies or modifies a URL which the server will then make a call to. By carefully selecting the URLs, the attacker may be able to read server configuration such as AWS metadata, connect to internal services like HTTP-enabled databases or perform post requests towards internal services which are not intended to be exposed.
+A server-side request forgery (SSRF) attack is when an attacker abuses functionality on the server to read or update internal resources. In the attack, the attacker supplies or modifies a URL which the server will then make a call to. By carefully selecting the URLs, the attacker may be able to read server configuration such as AWS metadata, connect to internal services like HTTP-enabled databases or perform PUT requests towards internal services which are not intended to be exposed.
 
 Webhooks implementations are especially vulnerable to SSRF as they let their consumers (customers) add any URLs they want, which will be called from the internal webhook system.
 
