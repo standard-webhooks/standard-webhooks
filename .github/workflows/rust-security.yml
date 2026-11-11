@@ -7,11 +7,13 @@ on:
     paths:
       - "libraries/rust/**/Cargo.toml"
       - "libraries/rust/**/Cargo.lock"
+      - "libraries/deny.toml"
       - ".github/workflows/rust-security.yml"
   pull_request:
     paths:
       - "libraries/rust/**/Cargo.toml"
       - "libraries/rust/**/Cargo.lock"
+      - "libraries/deny.toml"
       - ".github/workflows/rust-security.yml"
 
 jobs:
