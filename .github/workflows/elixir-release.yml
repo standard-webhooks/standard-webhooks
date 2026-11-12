@@ -14,9 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: Release
 
-    env:
-        MIX_ENV: prod
-
     steps:
       - uses: actions/checkout@v4
 
@@ -24,7 +21,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           version-type: strict
-          version-file: .tool-versions
+          version-file: libraries/elixir/.tool-versions
 
       - name: Install dependencies
         run: |
@@ -36,11 +33,12 @@ jobs:
       - name: Build
         run: |
           mix compile
-          mix release
         working-directory: libraries/elixir
 
       # https://hex.pm/docs/publish#publishing-from-ci
       - name: Publish package to hex.pm
         run: |
-          HEX_API_KEY=${{secrets.HEX_API_KEY}} mix hex.publish --yes
+          mix hex.publish --yes
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
         working-directory: libraries/elixir
