@@ -7,7 +7,7 @@ defmodule StandardWebhooksTest do
   @id "msg_p5jXN8AQM9LWM0D4loKWxJek"
   @timestamp :os.system_time(:second)
   @tolerance 5 * 60
-  @payload %{"event_type" => "ping"}
+  @payload ~s({"event_type":"ping"})
   @secret_prefix "whsec_"
   @secret "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
   @prefixed_secret @secret_prefix <> @secret
@@ -40,8 +40,8 @@ defmodule StandardWebhooksTest do
     end
 
     test "raises error when message payload is not a Map" do
-      assert_raise ArgumentError, "Message payload must be a map", fn ->
-        StandardWebhooks.sign(@id, @timestamp, [], @secret)
+      assert_raise ArgumentError, "Message payload must be a binary or a string", fn ->
+        StandardWebhooks.sign(@id, @timestamp, %{"event_type" => "ping"}, @secret)
       end
     end
 
@@ -156,6 +156,42 @@ defmodule StandardWebhooksTest do
       conn = setup_webhook(String.replace(signature, "v1,", "v2,", global: false))
 
       assert false == StandardWebhooks.verify(@payload, conn, @secret)
+    end
+
+    test "return false when the payload is serialized differently", %{signature: signature} do
+      conn = setup_webhook(signature)
+
+      assert false == StandardWebhooks.verify(~s({"event_type": "ping"}), conn, @secret)
+    end
+
+    test "return true for a binary (non UTF-8) payload" do
+      payload = <<0xFF, 0x00, 0xFE, 0x80>>
+      signature = StandardWebhooks.sign(@id, @timestamp, payload, @secret)
+      conn = setup_webhook(signature)
+
+      assert StandardWebhooks.verify(payload, conn, @secret)
+      assert false == StandardWebhooks.verify(<<0xFF, 0x00, 0xFE, 0x81>>, conn, @secret)
+    end
+
+    test "return true for a string payload with non-ASCII characters" do
+      payload = ~s({"name":"Zoë 🚀"})
+      signature = StandardWebhooks.sign(@id, @timestamp, payload, @secret)
+      conn = setup_webhook(signature)
+
+      assert StandardWebhooks.verify(payload, conn, @secret)
+    end
+
+    test "signs the payload byte for byte", %{signature: signature} do
+      expected =
+        :crypto.mac(
+          :hmac,
+          :sha256,
+          Base.decode64!(@secret),
+          "#{@id}.#{@timestamp}." <> @payload
+        )
+        |> Base.encode64()
+
+      assert "v1," <> expected == signature
     end
 
     test "raises error when missing webhook header", %{signature: signature} do

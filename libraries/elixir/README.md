@@ -10,7 +10,28 @@ StandardWebhooks.verify(webhook_payload, plug_conn, webhook_secret)
 
 Note: [Plug](https://hexdocs.pm/plug/Plug.Conn.html#t:headers/0) contains the request headers.
 
-Signing a webhook
+The payload must be the raw request body, exactly as received, as bytes or a string. Don't pass the parsed and re-encoded JSON, as even minor differences in serialization will make verification fail. Since `Plug.Parsers` consumes the body, keep a copy of the raw body using a custom [`:body_reader`](https://hexdocs.pm/plug/Plug.Parsers.html#module-custom-body-reader), for example:
+
+```elixir
+defmodule MyAppWeb.CacheBodyReader do
+  def read_body(conn, opts) do
+    {:ok, body, conn} = Plug.Conn.read_body(conn, opts)
+    conn = Plug.Conn.assign(conn, :raw_body, body)
+    {:ok, body, conn}
+  end
+end
+
+# In your endpoint
+plug Plug.Parsers,
+  parsers: [:json],
+  body_reader: {MyAppWeb.CacheBodyReader, :read_body, []},
+  json_decoder: Jason
+
+# Then
+StandardWebhooks.verify(conn.assigns.raw_body, conn, webhook_secret)
+```
+
+Signing a webhook (the payload is signed byte for byte, so pass the exact body that will be sent):
 
 ```elixir
 StandardWebhooks.sign(webhook_id, webhook_timestamp, webhook_payload, webhook_secret)

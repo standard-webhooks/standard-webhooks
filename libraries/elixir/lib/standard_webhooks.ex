@@ -12,8 +12,13 @@ defmodule StandardWebhooks do
 
   @doc """
   Verify a Standard Webhook given a payload, Plug.Conn and secret
+
+  The payload must be the raw request body, exactly as received, either as bytes (a binary) or
+  as a string (a UTF-8 binary). It's verified byte for byte, so don't pass a re-encoded version
+  of the parsed body: even a minor difference in the serialization (e.g. whitespace or key
+  order) will cause verification to fail.
   """
-  @spec verify(map(), Plug.Conn.t(), binary()) :: boolean()
+  @spec verify(binary() | String.t(), Plug.Conn.t(), binary()) :: boolean()
   def verify(payload, conn, secret) do
     verify_signature(payload, conn, secret)
   end
@@ -60,11 +65,14 @@ defmodule StandardWebhooks do
 
   @doc """
   Sign a Standard Webhook given an id, timestamp, payload and secret
+
+  The payload can be bytes (a binary) or a string (a UTF-8 binary). It's signed byte for byte,
+  so it must be the exact body that will be sent.
   """
   @spec sign(
           id :: String.t(),
           timestamp :: integer(),
-          payload :: map(),
+          payload :: binary() | String.t(),
           secret :: binary()
         ) ::
           String.t()
@@ -76,8 +84,8 @@ defmodule StandardWebhooks do
     raise ArgumentError, message: "Message timestamp must be an integer"
   end
 
-  def sign(_id, _timestamp, payload, _secret) when not is_map(payload) do
-    raise ArgumentError, message: "Message payload must be a map"
+  def sign(_id, _timestamp, payload, _secret) when not is_binary(payload) do
+    raise ArgumentError, message: "Message payload must be a binary or a string"
   end
 
   def sign(_id, _timestamp, _payload, secret) when not is_binary(secret) do
@@ -170,9 +178,7 @@ defmodule StandardWebhooks do
   end
 
   defp to_sign(id, timestamp, payload) do
-    encoded_payload = Jason.encode!(payload)
-
-    "#{id}.#{timestamp}.#{encoded_payload}"
+    "#{id}.#{timestamp}." <> payload
   end
 
   defp sign_and_encode(to_sign, secret) do
