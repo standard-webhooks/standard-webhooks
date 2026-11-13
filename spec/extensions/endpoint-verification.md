@@ -1,6 +1,6 @@
 # Webhook endpoint verification
 
-Webhook endpoint verification (WEV) is a way for a webhook producer to confirm that an endpoint is willing and able to receive its webhooks. The producer includes a random challenge in a request to the endpoint, and the endpoint responds with a value that can only be calculated by someone who holds the endpoint's key: the signing secret for symmetric signatures, or the public key for asymmetric ones. Similar schemes are commonly known as a challenge-response check (CRC).
+Webhook endpoint verification (WEV) is a way for a webhook producer to confirm that an endpoint is willing and able to receive its webhooks. The producer includes a random challenge in a request to the endpoint, and the endpoint responds with a value that can only be calculated by someone who holds the endpoint's key: the signing secret for symmetric signatures, or the public key and endpoint ID for asymmetric ones. Similar schemes are commonly known as a challenge-response check (CRC).
 
 Most webhook producers don't need endpoint verification, as for most of them the benefits don't justify the extra friction. It can also be added later, for all newly created endpoints, if these issues ever become a problem.
 
@@ -22,7 +22,7 @@ A common and simpler approach is to have the endpoint respond with the challenge
 1. It doesn't prove that the consumer has the correct key. An endpoint can echo the challenge without having a key configured at all.
 2. It doesn't prove consent. An endpoint that echoes challenges will do so for anyone, not only for the producer it was set up for. So an attacker that knows the URL of an existing endpoint can register it with another account of the same producer, or with an entirely different producer that uses the same kind of check, and it will pass. Any URL that can be made to echo back part of the request will pass as well.
 
-The scheme below solves both by requiring the consumer to sign the challenge using a key derived from the endpoint's key. Since keys are unique per endpoint, an endpoint can only respond correctly to checks for its own registration. Registering the same URL again, with another account or a different producer, results in a different key that the endpoint doesn't hold.
+The scheme below solves both by requiring the consumer to sign the challenge using a key derived from the endpoint's key. Since keys (or for asymmetric keys, the endpoint IDs) are unique per endpoint, an endpoint can only respond correctly to checks for its own registration. Registering the same URL again, with another account or a different producer, results in a different key or endpoint ID that the endpoint doesn't hold.
 
 ## How it works
 
@@ -57,12 +57,12 @@ signature = base64(HMAC-SHA256(key=verification_key, msg=challenge))
 
 Where `challenge` is the value of the `webhook-challenge` header exactly as received (the base64 string itself, not the decoded bytes), and `endpoint_key` depends on the type of signature used by the endpoint:
 
-|                      | Symmetric                                                     | Asymmetric                                                       |
-| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `endpoint_key`       | The raw secret bytes (the base64 decoded part after `whsec_`) | The raw public key bytes (the base64 decoded part after `whpk_`) |
-| Signature identifier | `v1`                                                          | `v1a`                                                            |
+|                      | Symmetric                                                     | Asymmetric                                                                                                 |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `endpoint_key`       | The raw secret bytes (the base64 decoded part after `whsec_`) | The raw public key bytes (the base64 decoded part after `whpk_`), followed by `.` and the endpoint ID      |
+| Signature identifier | `v1`                                                          | `v2a`                                                                                                      |
 
-In both cases these are the same bytes the consumer already uses for verifying webhooks, so no additional configuration is needed.
+In both cases this is the same data the consumer already uses for verifying webhooks, so no additional configuration is needed. The endpoint ID is included for asymmetric keys because the same key pair is usually shared across endpoints.
 
 The `wev-v1` label can never collide with the content of a webhook signature, as the signed content of a webhook (`msg_id.timestamp.payload`) always includes at least two `.` characters, and the label includes none.
 
@@ -132,16 +132,16 @@ verification_key (base64): w0AwXgXeZ+n5Kvmq/fCsdKc0JgeFSZVI7D05gJOAyTY=
 webhook-challenge-response: v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=
 ```
 
-With the public key `whpk_4HniJmTDEuKME2hIRVViOLhc74kidun6tmo2CJin7Sw=`:
+With the public key `whpk_uWKK13PfwqyOgrqT0OrWKcS2uVD7e89+oUKnkoPjx7w=` and the endpoint ID `ep_2fVZdC8Kx9TR4ZoCqHWt3NnLgRb`:
 
 ```
-verification_key (base64): IEe0yDAbCUQUfnVH7r2joNf7Xl1J8Vh49gTUGNR4c7I=
+verification_key (base64): YYCPt0lD/zon3FFk7MHznJHji3Td5EEGcithf+hw924=
 
-webhook-challenge-response: v1a,gqeVxLN/gmCkegcKykCxU5iU5Q5Zojs5tqpEXGv6To8=
+webhook-challenge-response: v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk=
 ```
 
 ## Additional notes
 
 - Endpoint verification uses a separate key domain (derived from the key using `wev-v1`) so that it doesn't expose a signing oracle signing attacker-chosen data. This is also why consumers can respond to the challenge without verifying the request: the response isn't useful for anything other than passing endpoint verification for this endpoint.
-- Asymmetric keys: anyone who knows the public key can calculate the response, and that's fine. The goals are met by the endpoint itself calculating it, which shows that its operator configured this specific key, and since keys are unique per endpoint, it can't be used to pass checks for anyone else's registration.
+- Asymmetric keys: anyone who knows the public key can calculate the response, and that's fine. The goals are met by the endpoint itself calculating it, which shows that its operator configured this specific key and endpoint ID, and since endpoint IDs are unique per endpoint, it can't be used to pass checks for anyone else's registration.
 - Headers only: the challenge and the response are deliberately passed in headers, so the body of the request and of the response play no part in the check. This lets producers send whatever body they want (e.g. to fit their existing delivery pipeline), while consumers just ignore it.
