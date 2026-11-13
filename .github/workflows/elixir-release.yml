@@ -14,17 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: Release
 
-    env:
-        MIX_ENV: prod
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
+      # Trusted publishing needs Hex >= 2.6 (installed by `mix local.hex`
+      # below) running on OTP >= 27, so this doesn't use .tool-versions.
       - name: Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          version-type: strict
-          version-file: .tool-versions
+          otp-version: "27"
+          elixir-version: "1.18"
 
       - name: Install dependencies
         run: |
@@ -36,11 +35,11 @@ jobs:
       - name: Build
         run: |
           mix compile
-          mix release
         working-directory: libraries/elixir
 
-      # https://hex.pm/docs/publish#publishing-from-ci
+      # Trusted publishing: with no HEX_API_KEY set, Hex exchanges the GitHub
+      # OIDC token for a short-lived token that can only publish this package.
       - name: Publish package to hex.pm
         run: |
-          HEX_API_KEY=${{secrets.HEX_API_KEY}} mix hex.publish --yes
+          mix hex.publish --yes
         working-directory: libraries/elixir
