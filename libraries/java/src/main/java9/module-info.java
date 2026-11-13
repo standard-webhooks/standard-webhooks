@@ -4,6 +4,7 @@
  * additionally reads java.net.http for the HttpHeaders overload of verify.
  */
 module com.standardwebhooks {
+	requires org.bouncycastle.provider;
 	exports com.standardwebhooks;
 	exports com.standardwebhooks.exceptions;
 }

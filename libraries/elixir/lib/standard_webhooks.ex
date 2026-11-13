@@ -31,7 +31,9 @@ defmodule StandardWebhooks do
     valid_signatures?(header_signatures, signature)
   end
 
-  defp get_req_headers(conn) do
+  @doc false
+  # Shared with `StandardWebhooks.Asymmetric`.
+  def get_req_headers(conn) do
     with [id] when is_binary(id) <- get_req_header(conn, "webhook-id"),
          [timestamp] when is_binary(timestamp) <- get_req_header(conn, "webhook-timestamp"),
          signatures when is_list(signatures) <- get_req_header(conn, "webhook-signature") do

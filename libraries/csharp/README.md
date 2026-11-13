@@ -31,6 +31,19 @@ Verifying a challenge response (for producers):
 wh.VerifyEndpointVerificationResponse(challenge, responseHeader);
 ```
 
+## Asymmetric signatures
+
+Verifying a webhook payload signed with an asymmetric (`v2a`) signature, using the endpoint's public keys and the endpoint ID assigned by the producer:
+
+```cs
+using StandardWebhooks;
+
+var wh = new WebhookAsymmetric("ep_...", new[] { "whpk_..." });
+wh.Verify(webhookPayload, webhookHeaders);
+```
+
+Keys can be rotated by adding the new key to the start of the list (newest first): a signature made by any of the keys is accepted, and the first key is used for endpoint verification responses. `WebhookAsymmetric` supports the same endpoint verification methods as `Webhook` above.
+
 # Development
 
 ## Requirements

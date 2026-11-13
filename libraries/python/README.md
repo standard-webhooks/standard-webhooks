@@ -15,6 +15,22 @@ wh.verify(webhook_payload, webhook_headers)
 Pass it as `bytes` to verify the bytes as sent, including bodies that aren't valid UTF-8. A
 `str` is verified as its UTF-8 encoding.
 
+## Asymmetric signatures
+
+Verifying a webhook signed with asymmetric (`v2a`) signatures requires the `asymmetric` extra
+(`pip install 'standardwebhooks[asymmetric]'`), and uses the producer's public keys and the
+endpoint ID it shared with you:
+
+```python
+from standardwebhooks.webhooks import WebhookAsymmetric
+
+wh = WebhookAsymmetric(endpoint_id, ["whpk_..."])
+wh.verify(webhook_payload, webhook_headers)
+```
+
+Webhooks signed with any of the public keys are accepted, so keys can be rotated by adding the
+new key to the list. Put the newest key first: it's the one used for endpoint verification.
+
 Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
 
 ```python

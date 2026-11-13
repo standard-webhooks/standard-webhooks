@@ -9,6 +9,10 @@ use http::HeaderMap;
 use std::fmt::{self, Debug};
 use time::OffsetDateTime;
 
+mod asymmetric;
+
+pub use asymmetric::{WebhookAsymmetric, WebhookAsymmetricError};
+
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum WebhookError {
     #[error("failed to parse timestamp")]
@@ -98,18 +102,13 @@ impl Webhook {
         headers: &HeaderMap,
         now: i64,
     ) -> Result<(), WebhookError> {
-        let msg_id = Self::get_header(headers, HEADER_WEBHOOK_ID, "id")?;
-        let msg_signature = Self::get_header(headers, HEADER_WEBHOOK_SIGNATURE, "signature")?;
-        let msg_ts = Self::get_header(headers, HEADER_WEBHOOK_TIMESTAMP, "timestamp")
-            .and_then(Self::parse_timestamp)?;
-
-        Self::verify_timestamp(msg_ts, now)?;
+        let (msg_id, msg_signature, msg_ts) = parse_verify_headers(headers, now)?;
 
         let expected_signature = self.sign(msg_id, msg_ts, payload)?;
 
         msg_signature
             .split(' ')
-            .any(|x| Self::secure_compare(x, &expected_signature))
+            .any(|x| secure_compare(x, &expected_signature))
             .then_some(())
             .ok_or(WebhookError::InvalidSignature)
     }
@@ -128,23 +127,12 @@ impl Webhook {
         Ok(format!("{SIGNATURE_VERSION},{encoded}"))
     }
 
-    fn secure_compare(a: &str, b: &str) -> bool {
-        (a.len() == b.len())
-            && (a
-                .bytes()
-                .zip(b.bytes())
-                .fold(0, |acc, (x, y)| acc | (x ^ y))
-                == 0)
-    }
-
     /// Calculate the response to an endpoint verification challenge
     ///
     /// Takes the value of the `webhook-challenge` header and returns the value for the
     /// `webhook-challenge-response` header.
     pub fn endpoint_verification_response(&self, challenge: &str) -> String {
-        let verification_key = hmac_sha256::HMAC::mac(VERIFICATION_KEY_LABEL, &self.key);
-        let signed = hmac_sha256::HMAC::mac(challenge.as_bytes(), verification_key);
-        let encoded = base64::engine::general_purpose::STANDARD.encode(signed);
+        let encoded = sign_challenge(&self.key, challenge);
 
         format!("{SIGNATURE_VERSION},{encoded}")
     }
@@ -155,36 +143,66 @@ impl Webhook {
         challenge: &str,
         header: &str,
     ) -> Result<(), WebhookError> {
-        Self::secure_compare(header, &self.endpoint_verification_response(challenge))
+        secure_compare(header, &self.endpoint_verification_response(challenge))
             .then_some(())
             .ok_or(WebhookError::InvalidSignature)
     }
+}
 
-    fn get_header<'a>(
-        headers: &'a HeaderMap,
-        unbranded_hdr: &'static str,
-        err_name: &'static str,
-    ) -> Result<&'a str, WebhookError> {
-        headers
-            .get(unbranded_hdr)
-            .ok_or(WebhookError::MissingHeader(err_name))?
-            .to_str()
-            .map_err(|_| WebhookError::InvalidHeader(err_name))
-    }
+/// Extract the webhook id, signature and timestamp from the headers, and verify the timestamp
+/// is within the tolerance of `now`
+fn parse_verify_headers(headers: &HeaderMap, now: i64) -> Result<(&str, &str, i64), WebhookError> {
+    let msg_id = get_header(headers, HEADER_WEBHOOK_ID, "id")?;
+    let msg_signature = get_header(headers, HEADER_WEBHOOK_SIGNATURE, "signature")?;
+    let msg_ts =
+        get_header(headers, HEADER_WEBHOOK_TIMESTAMP, "timestamp").and_then(parse_timestamp)?;
 
-    fn parse_timestamp(hdr: &str) -> Result<i64, WebhookError> {
-        str::parse::<i64>(hdr).map_err(|_| WebhookError::InvalidTimestamp)
-    }
+    verify_timestamp(msg_ts, now)?;
 
-    fn verify_timestamp(ts: i64, now: i64) -> Result<(), WebhookError> {
-        if now - ts > TOLERANCE_IN_SECONDS {
-            Err(WebhookError::TimestampTooOldError)
-        } else if ts > now + TOLERANCE_IN_SECONDS {
-            Err(WebhookError::FutureTimestampError)
-        } else {
-            Ok(())
-        }
+    Ok((msg_id, msg_signature, msg_ts))
+}
+
+fn get_header<'a>(
+    headers: &'a HeaderMap,
+    unbranded_hdr: &'static str,
+    err_name: &'static str,
+) -> Result<&'a str, WebhookError> {
+    headers
+        .get(unbranded_hdr)
+        .ok_or(WebhookError::MissingHeader(err_name))?
+        .to_str()
+        .map_err(|_| WebhookError::InvalidHeader(err_name))
+}
+
+fn parse_timestamp(hdr: &str) -> Result<i64, WebhookError> {
+    str::parse::<i64>(hdr).map_err(|_| WebhookError::InvalidTimestamp)
+}
+
+fn verify_timestamp(ts: i64, now: i64) -> Result<(), WebhookError> {
+    if now - ts > TOLERANCE_IN_SECONDS {
+        Err(WebhookError::TimestampTooOldError)
+    } else if ts > now + TOLERANCE_IN_SECONDS {
+        Err(WebhookError::FutureTimestampError)
+    } else {
+        Ok(())
     }
+}
+
+fn secure_compare(a: &str, b: &str) -> bool {
+    (a.len() == b.len())
+        && (a
+            .bytes()
+            .zip(b.bytes())
+            .fold(0, |acc, (x, y)| acc | (x ^ y))
+            == 0)
+}
+
+/// Sign an endpoint verification challenge using a key derived from the endpoint key, and return
+/// the base64 encoded signature
+fn sign_challenge(endpoint_key: &[u8], challenge: &str) -> String {
+    let verification_key = hmac_sha256::HMAC::mac(VERIFICATION_KEY_LABEL, endpoint_key);
+    let signed = hmac_sha256::HMAC::mac(challenge.as_bytes(), verification_key);
+    base64::engine::general_purpose::STANDARD.encode(signed)
 }
 
 #[cfg(test)]

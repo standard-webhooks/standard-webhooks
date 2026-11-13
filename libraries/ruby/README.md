@@ -58,6 +58,28 @@ Producers can verify the response with `#verify_endpoint_verification_response`,
 webhook.verify_endpoint_verification_response(challenge, response_headers['webhook-challenge-response'])
 ```
 
+## Asymmetric signatures
+
+Webhooks signed with asymmetric (`v2a`) signatures are verified with `StandardWebhooks::WebhookAsymmetric`,
+which takes the endpoint ID and the list of trusted public keys (`whpk_...`) the producer shared with you.
+A webhook is accepted if it's signed by any of the keys, so keys can be rotated by adding the new key to the list.
+Put the newest key first, as endpoint verification responses are calculated with the first key.
+
+```ruby
+webhook = StandardWebhooks::WebhookAsymmetric.new(
+	ENV.fetch('WEBHOOK_ENDPOINT_ID'),
+	[ENV.fetch('WEBHOOK_PUBLIC_KEY')],
+)
+
+payload = webhook.verify(raw_body, {
+	'webhook-id' => request_headers.fetch('webhook-id'),
+	'webhook-timestamp' => request_headers.fetch('webhook-timestamp'),
+	'webhook-signature' => request_headers.fetch('webhook-signature'),
+})
+```
+
+`WebhookAsymmetric` also supports `#endpoint_verification_response` and `#verify_endpoint_verification_response`.
+
 ## Rails example
 
 ```ruby

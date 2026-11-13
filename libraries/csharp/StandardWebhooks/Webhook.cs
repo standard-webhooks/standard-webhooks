@@ -62,7 +62,7 @@ namespace StandardWebhooks
             throw new WebhookVerificationException("No matching signature found");
         }
 
-        private static DateTimeOffset VerifyTimestamp(string timestampHeader)
+        internal static DateTimeOffset VerifyTimestamp(string timestampHeader)
         {
             DateTimeOffset timestamp;
             var now = DateTimeOffset.UtcNow;
@@ -106,16 +106,20 @@ namespace StandardWebhooks
         /// <returns>The value for the webhook-challenge-response response header.</returns>
         public string EndpointVerificationResponse(string challenge)
         {
+            var signature = Convert.ToBase64String(EndpointVerificationSignature(this.key, challenge));
+            return $"v1,{signature}";
+        }
+
+        internal static byte[] EndpointVerificationSignature(byte[] endpointKey, string challenge)
+        {
             byte[] verificationKey;
-            using (var hmac = new HMACSHA256(this.key))
+            using (var hmac = new HMACSHA256(endpointKey))
             {
                 verificationKey = hmac.ComputeHash(SafeUTF8Encoding.GetBytes("wev-v1"));
             }
             using (var hmac = new HMACSHA256(verificationKey))
             {
-                var hash = hmac.ComputeHash(SafeUTF8Encoding.GetBytes(challenge));
-                var signature = Convert.ToBase64String(hash);
-                return $"v1,{signature}";
+                return hmac.ComputeHash(SafeUTF8Encoding.GetBytes(challenge));
             }
         }
 

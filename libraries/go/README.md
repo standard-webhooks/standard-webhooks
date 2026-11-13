@@ -13,6 +13,19 @@ wh, err := standardwebhooks.NewWebhook(base64Secret)
 err = wh.Verify(webhookPayload, webhookHeaders)
 ```
 
+## Asymmetric signatures
+
+Verifying a webhook payload signed with asymmetric (`v2a`) signatures, using the public keys and the endpoint ID shared by the producer:
+
+```go
+wh, err := standardwebhooks.NewWebhookAsymmetric("ep_...", []string{"whpk_..."})
+err = wh.Verify(webhookPayload, webhookHeaders)
+```
+
+A webhook is accepted if it was signed by any of the public keys in the list, so keys can be rotated by adding the new key to the list. Put the newest key first: it's the one used for responding to endpoint verification.
+
+## Endpoint verification
+
 Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
 
 ```go
@@ -25,6 +38,8 @@ if challenge := r.Header.Get(standardwebhooks.HeaderWebhookChallenge); challenge
 ```
 
 Producers can verify the `webhook-challenge-response` header with `wh.VerifyEndpointVerificationResponse(challenge, header)`.
+
+Both work the same way with `WebhookAsymmetric`.
 
 # Development
 

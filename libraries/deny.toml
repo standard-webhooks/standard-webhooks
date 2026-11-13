@@ -14,6 +14,7 @@ unmaintained = "workspace"
 
 [licenses]
 allow = [
+    "BSD-3-Clause",
     "ISC",
     "MIT",
     "Unicode-3.0",

@@ -29,11 +29,25 @@ Verifying a challenge response (for producers):
 $wh->verifyEndpointVerificationResponse($challenge, $responseHeaders['webhook-challenge-response']);
 ```
 
+## Asymmetric signatures
+
+Webhooks signed with asymmetric (`v2a`) signatures are verified with `WebhookAsymmetric`, which takes the endpoint ID and the list of trusted public keys (`whpk_...`) the producer shared with you.
+A webhook is accepted if it's signed by any of the keys, so keys can be rotated by adding the new key to the list.
+Put the newest key first, as endpoint verification responses are calculated with the first key.
+
+```php
+$wh = new \StandardWebhooks\WebhookAsymmetric($endpointId, [$publicKey]);
+$wh->verify($webhookPayload, $webhookHeaders);
+```
+
+`WebhookAsymmetric` also supports `endpointVerificationResponse` and `verifyEndpointVerificationResponse`.
+
 ### Required Dependencies
 
 Standard Webhooks PHP requires the following extensions in order to run:
 
 - [`json`](https://secure.php.net/manual/en/book.json.php)
+- [`sodium`](https://secure.php.net/manual/en/book.sodium.php) (for `WebhookAsymmetric`)
 
 If you use Composer, these dependencies should be handled automatically. If you install manually, you'll want to make sure that these extensions are available.
 

@@ -15,6 +15,21 @@ wh.verify(webhook_payload, webhook_headers);
 Pass it as a `Buffer` or `Uint8Array` to verify the bytes as sent, including bodies that aren't
 valid UTF-8. A string is verified as its UTF-8 encoding.
 
+## Asymmetric signatures
+
+Verifying a webhook signed with asymmetric (`v2a`) signatures, using the producer's public keys
+and the endpoint ID it shared with you:
+
+```javascript
+import { WebhookAsymmetric } from "standardwebhooks"
+
+const wh = new WebhookAsymmetric(endpoint_id, ["whpk_..."]);
+wh.verify(webhook_payload, webhook_headers);
+```
+
+Webhooks signed with any of the public keys are accepted, so keys can be rotated by adding the
+new key to the list. Put the newest key first: it's the one used for endpoint verification.
+
 Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
 
 ```javascript

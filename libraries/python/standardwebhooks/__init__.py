@@ -1,7 +1,8 @@
-from .webhooks import Webhook, WebhookVerificationError
+from .webhooks import Webhook, WebhookAsymmetric, WebhookVerificationError
 
 __all__ = [
     "Webhook",
+    "WebhookAsymmetric",
     "WebhookVerificationError",
 ]
 

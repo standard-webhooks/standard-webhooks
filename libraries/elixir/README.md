@@ -58,6 +58,17 @@ end
 
 Producers can verify the `webhook-challenge-response` header with `StandardWebhooks.verify_endpoint_verification_response(challenge, header, webhook_secret)`.
 
+## Asymmetric signatures
+
+Verifying a webhook signed with asymmetric (`v2a`) signatures, using the list of trusted public keys (`whpk_...`) and the endpoint ID the producer shared with you:
+
+```elixir
+webhook = StandardWebhooks.Asymmetric.new(webhook_endpoint_id, [webhook_public_key])
+StandardWebhooks.Asymmetric.verify(webhook_payload, plug_conn, webhook)
+```
+
+As with `StandardWebhooks.verify/3`, the payload must be the raw request body (bytes or a string). A webhook is accepted if it's signed by any of the keys, so keys can be rotated by adding the new key to the list. Put the newest key first, as `StandardWebhooks.Asymmetric.endpoint_verification_response/2` uses the first key.
+
 # Development
 
 ## Installation
