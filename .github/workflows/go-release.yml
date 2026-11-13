@@ -15,7 +15,7 @@ jobs:
     environment: Release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The Go module lives in libraries/ (module path
       # github.com/standard-webhooks/standard-webhooks/libraries), so Go
