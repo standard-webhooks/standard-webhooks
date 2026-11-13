@@ -46,6 +46,63 @@ There are reference implementations for the signature verification theme for a v
 - [C#](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/csharp) - `StandardWebhooks.StandardWebhooks` on nuget.
 - [Elixir](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/elixir)
 
+## Using the libraries
+
+All of the reference implementations share the same API (adapted to each language's conventions). The examples below use JavaScript; see each library's README for its exact usage.
+
+### Symmetric signatures
+
+Both sides share the same `whsec_` secret.
+
+```javascript
+import { Webhook } from "standardwebhooks";
+
+const wh = new Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+
+// Producer: sign
+const signature = wh.sign(msgId, timestamp, payload);
+
+// Consumer: verify (the payload must be the raw request body, exactly as received)
+const event = wh.verify(payload, headers);
+```
+
+### Asymmetric signatures
+
+The producer signs with a private key, and gives consumers the public key and the ID of their endpoint. A single key pair can be used for all endpoints.
+
+Producer, signing using an HSM or a KMS (recommended):
+
+```javascript
+import { WebhookAsymmetric } from "standardwebhooks";
+
+const hash = WebhookAsymmetric.signedContentHash(endpointId, msgId, timestamp, payload);
+const signature = WebhookAsymmetric.formatSignature(await hsm.sign(hash)); // Your HSM's ed25519 sign call
+
+// The whpk_ public key to give to consumers, from the raw key or the DER (SubjectPublicKeyInfo) your HSM returns
+const publicKey = WebhookAsymmetric.formatPublicKey(await hsm.getPublicKey());
+```
+
+Producer, signing using a private key you hold yourself:
+
+```javascript
+import { WebhookAsymmetricSigner } from "standardwebhooks";
+
+const signer = new WebhookAsymmetricSigner("whsk_...");
+const signature = signer.sign(endpointId, msgId, timestamp, payload);
+const publicKey = signer.publicKey(); // The whpk_ public key to give to consumers
+```
+
+Consumer, verifying using the producer's public key(s) and the endpoint ID it gave you:
+
+```javascript
+import { WebhookAsymmetric } from "standardwebhooks";
+
+const wh = new WebhookAsymmetric("ep_...", ["whpk_..."]);
+const event = wh.verify(payload, headers);
+```
+
+Keys are rotated by the producer: consumers just add the new public key to the list (newest first).
+
 ## Community implementations
 
 - [C# (.NET)](https://github.com/codefactors/StandardWebhooks)
