@@ -85,9 +85,9 @@ abstract class WebhookBase {
 	}
 
 	/**
-	 * Case-insensitive header lookup helper.
+	 * Case-insensitive header lookup helper. Shared with {@link WebhookAsymmetricBase}.
 	 */
-	private static String getFirstHeader(Map<String, List<String>> headers, String name) {
+	static String getFirstHeader(Map<String, List<String>> headers, String name) {
 		for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
 			if (entry.getKey().equalsIgnoreCase(name)) {
 				List<String> values = entry.getValue();
@@ -121,14 +121,21 @@ abstract class WebhookBase {
 	 * @throws WebhookSigningException if the response can't be calculated
 	 */
 	public final String endpointVerificationResponse(final String challenge) throws WebhookSigningException {
+		String signature = Base64.getEncoder().encodeToString(WebhookBase.endpointVerificationSignature(this.key, challenge));
+		return String.format("v1,%s", signature);
+	}
+
+	/**
+	 * Calculate the raw endpoint verification signature of a challenge for an endpoint key.
+	 * Shared with {@link WebhookAsymmetricBase}.
+	 */
+	static byte[] endpointVerificationSignature(final byte[] endpointKey, final String challenge) throws WebhookSigningException {
 		try {
 			Mac hmac = Mac.getInstance(HMAC_SHA256);
-			hmac.init(new SecretKeySpec(this.key, HMAC_SHA256));
+			hmac.init(new SecretKeySpec(endpointKey, HMAC_SHA256));
 			byte[] verificationKey = hmac.doFinal("wev-v1".getBytes(StandardCharsets.UTF_8));
 			hmac.init(new SecretKeySpec(verificationKey, HMAC_SHA256));
-			byte[] macData = hmac.doFinal(challenge.getBytes(StandardCharsets.UTF_8));
-			String signature = Base64.getEncoder().encodeToString(macData);
-			return String.format("v1,%s", signature);
+			return hmac.doFinal(challenge.getBytes(StandardCharsets.UTF_8));
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			throw new WebhookSigningException(e.getMessage());
 		}
@@ -158,7 +165,10 @@ abstract class WebhookBase {
 		}
 	}
 
-	private static long verifyTimestamp(final String timestampHeader) throws WebhookVerificationException {
+	/**
+	 * Parse the timestamp header and check it's within the tolerance. Shared with {@link WebhookAsymmetricBase}.
+	 */
+	static long verifyTimestamp(final String timestampHeader) throws WebhookVerificationException {
 		long now = System.currentTimeMillis() / WebhookBase.SECOND_IN_MS;
 
 		long timestamp;

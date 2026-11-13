@@ -12,7 +12,8 @@
     ],
     "require": {
         "php": "^8.0",
-        "ext-json": "*"
+        "ext-json": "*",
+        "ext-sodium": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^11",

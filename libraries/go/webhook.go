@@ -85,22 +85,9 @@ func (wh *Webhook) VerifyIgnoringTimestamp(payload []byte, headers http.Header) 
 }
 
 func (wh *Webhook) verify(payload []byte, headers http.Header, enforceTolerance bool) error {
-	msgId := headers.Get(HeaderWebhookID)
-	msgSignature := headers.Get(HeaderWebhookSignature)
-	msgTimestamp := headers.Get(HeaderWebhookTimestamp)
-	if msgId == "" || msgSignature == "" || msgTimestamp == "" {
-		return fmt.Errorf("unable to verify payload, err: %w", ErrRequiredHeaders)
-	}
-
-	timestamp, err := parseTimestampHeader(msgTimestamp)
+	msgId, msgSignature, timestamp, err := parseVerifyHeaders(headers, enforceTolerance)
 	if err != nil {
-		return fmt.Errorf("unable to verify payload, err: %w", err)
-	}
-
-	if enforceTolerance {
-		if err := verifyTimestamp(timestamp); err != nil {
-			return fmt.Errorf("unable to verify payload, err: %w", err)
-		}
+		return err
 	}
 
 	expectedSignature, err := wh.Sign(msgId, timestamp, payload)
@@ -154,7 +141,13 @@ func (wh *Webhook) VerifyEndpointVerificationResponse(challenge string, header s
 }
 
 func (wh *Webhook) signChallenge(challenge string) []byte {
-	verificationKey := hmac.New(sha256.New, wh.key)
+	return signChallenge(wh.key, challenge)
+}
+
+// signChallenge signs an endpoint verification challenge using a key
+// derived from the endpoint key, and returns the base64 encoded signature.
+func signChallenge(endpointKey []byte, challenge string) []byte {
+	verificationKey := hmac.New(sha256.New, endpointKey)
 	verificationKey.Write([]byte(verificationKeyLabel))
 
 	h := hmac.New(sha256.New, verificationKey.Sum(nil))
@@ -163,6 +156,30 @@ func (wh *Webhook) signChallenge(challenge string) []byte {
 	base64enc.Encode(sig, h.Sum(nil))
 
 	return sig
+}
+
+// parseVerifyHeaders extracts the webhook id, signature and timestamp from the
+// headers, and verifies the timestamp is within the tolerance if enforceTolerance is set.
+func parseVerifyHeaders(headers http.Header, enforceTolerance bool) (msgId string, msgSignature string, timestamp time.Time, err error) {
+	msgId = headers.Get(HeaderWebhookID)
+	msgSignature = headers.Get(HeaderWebhookSignature)
+	msgTimestamp := headers.Get(HeaderWebhookTimestamp)
+	if msgId == "" || msgSignature == "" || msgTimestamp == "" {
+		return "", "", time.Time{}, fmt.Errorf("unable to verify payload, err: %w", ErrRequiredHeaders)
+	}
+
+	timestamp, err = parseTimestampHeader(msgTimestamp)
+	if err != nil {
+		return "", "", time.Time{}, fmt.Errorf("unable to verify payload, err: %w", err)
+	}
+
+	if enforceTolerance {
+		if err := verifyTimestamp(timestamp); err != nil {
+			return "", "", time.Time{}, fmt.Errorf("unable to verify payload, err: %w", err)
+		}
+	}
+
+	return msgId, msgSignature, timestamp, nil
 }
 
 func parseTimestampHeader(timestampHeader string) (time.Time, error) {

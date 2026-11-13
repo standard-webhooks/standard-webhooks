@@ -38,4 +38,9 @@ public class WebhookJava8IntegrationTest {
 			majorVersion
 		);
 	}
+
+	@Test
+	public void verifyLoadedAsymmetricClassFor8() throws Exception {
+		assertEquals(52, WebhookTest.classMajorVersion(WebhookAsymmetric.class));
+	}
 }

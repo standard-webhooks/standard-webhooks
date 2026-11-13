@@ -2,10 +2,16 @@ import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import * as vm from "node:vm";
 import * as base64 from "@stablelib/base64";
+import * as ed25519 from "@stablelib/ed25519";
 import * as utf8 from "@stablelib/utf8";
 import * as sha256 from "fast-sha256";
 
-import { Webhook, WebhookVerificationError } from "./index";
+import {
+  Webhook,
+  WebhookAsymmetric,
+  WebhookAsymmetricSigner,
+  WebhookVerificationError,
+} from "./index";
 
 const defaultMsgID = "msg_p5jXN8AQM9LWM0D4loKWxJek";
 const defaultPayload = `{"test": 2432232314}`;
@@ -443,4 +449,421 @@ test("challenge response depends on the secret", () => {
     "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
   );
   assert.notEqual(result, "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=");
+});
+
+// Asymmetric signatures (v2a): test vectors from the spec
+
+const asymSecretKey = "whsk_4uKPjji/dhB8w6GW3YYDnIMYvXcdHrvH6lidTr4Z+EY=";
+const asymPublicKey = "whpk_uWKK13PfwqyOgrqT0OrWKcS2uVD7e89+oUKnkoPjx7w=";
+const asymEndpointId = "ep_2fVZdC8Kx9TR4ZoCqHWt3NnLgRb";
+const asymMsgId = "msg_2KWPBgLlAfxdpx2AI54pPJ85f4W";
+const asymTimestamp = 1674087231;
+const asymPayload = `{"type":"contact.created","timestamp":"2022-11-03T20:26:10.344522Z","data":{"id":"1f81eb52-5198-4599-803e-771906343485"}}`;
+const asymDigest = "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A=";
+const asymSignature =
+  "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg==";
+const asymChallenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
+const asymChallengeResponse = "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk=";
+
+const asymKeyPair = ed25519.generateKeyPairFromSeed(
+  base64.decode(asymSecretKey.slice("whsk_".length))
+);
+const asymSigner = new WebhookAsymmetricSigner(asymSecretKey);
+// Another key, e.g. the producer's newer key after a rotation
+const otherSigner = new WebhookAsymmetricSigner(
+  `whsk_${base64.encode(new Uint8Array(32).fill(7))}`
+);
+const otherPublicKey = otherSigner.publicKey();
+
+function asymSign(
+  secretKey: Uint8Array,
+  endpointId: string,
+  msgId: string,
+  timestamp: number,
+  payload: string | Uint8Array
+): string {
+  const prefix = utf8.encode(`${endpointId}.${msgId}.${timestamp}.`);
+  const bytes = typeof payload === "string" ? utf8.encode(payload) : payload;
+  const content = new Uint8Array(prefix.length + bytes.length);
+  content.set(prefix);
+  content.set(bytes, prefix.length);
+  return `v2a,${base64.encode(ed25519.sign(secretKey, sha256.hash(content)))}`;
+}
+
+function asymHeaders(
+  payload: string | Uint8Array = asymPayload,
+  signer: WebhookAsymmetricSigner = asymSigner,
+  endpointId: string = asymEndpointId,
+  timestamp: number = Math.floor(Date.now() / 1000)
+): Record<string, string> {
+  return {
+    "webhook-id": asymMsgId,
+    "webhook-timestamp": timestamp.toString(),
+    "webhook-signature": signer.sign(
+      endpointId,
+      asymMsgId,
+      new Date(timestamp * 1000),
+      payload
+    ),
+  };
+}
+
+test("asymmetric spec test vector matches the ed25519 primitive", () => {
+  assert.equal(
+    `whpk_${base64.encode(asymKeyPair.publicKey)}`,
+    asymPublicKey,
+    "public key"
+  );
+  const content = utf8.encode(
+    `${asymEndpointId}.${asymMsgId}.${asymTimestamp}.${asymPayload}`
+  );
+  const digest = sha256.hash(content);
+  assert.equal(base64.encode(digest), asymDigest);
+  assert.ok(
+    ed25519.verify(
+      asymKeyPair.publicKey,
+      digest,
+      base64.decode(asymSignature.slice("v2a,".length))
+    )
+  );
+  assert.equal(
+    asymSign(
+      asymKeyPair.secretKey,
+      asymEndpointId,
+      asymMsgId,
+      asymTimestamp,
+      asymPayload
+    ),
+    asymSignature
+  );
+});
+
+test("asymmetric signer matches the spec test vector", () => {
+  assert.equal(asymSigner.publicKey(), asymPublicKey);
+  assert.equal(
+    asymSigner.sign(
+      asymEndpointId,
+      asymMsgId,
+      new Date(asymTimestamp * 1000),
+      asymPayload
+    ),
+    asymSignature
+  );
+  assert.equal(
+    asymSigner.sign(
+      asymEndpointId,
+      asymMsgId,
+      new Date(asymTimestamp * 1000),
+      utf8.encode(asymPayload)
+    ),
+    asymSignature
+  );
+});
+
+test("asymmetric signedContentHash matches the spec test vector", () => {
+  const digest = WebhookAsymmetric.signedContentHash(
+    asymEndpointId,
+    asymMsgId,
+    new Date(asymTimestamp * 1000),
+    asymPayload
+  );
+  assert.equal(digest.length, 32);
+  assert.equal(base64.encode(digest), asymDigest);
+});
+
+test("asymmetric HSM flow produces the spec test vector", () => {
+  const digest = WebhookAsymmetric.signedContentHash(
+    asymEndpointId,
+    asymMsgId,
+    new Date(asymTimestamp * 1000),
+    asymPayload
+  );
+  // Stand-in for the HSM's sign call
+  const signature = ed25519.sign(asymKeyPair.secretKey, digest);
+  assert.equal(WebhookAsymmetric.formatSignature(signature), asymSignature);
+});
+
+test("asymmetric formatSignature round-trips and rejects wrong lengths", () => {
+  const signature = new Uint8Array(64).fill(0xab);
+  const formatted = WebhookAsymmetric.formatSignature(signature);
+  assert.ok(formatted.startsWith("v2a,"));
+  assert.deepEqual(base64.decode(formatted.slice("v2a,".length)), signature);
+  for (const length of [0, 32, 63, 65]) {
+    assert.throws(() => WebhookAsymmetric.formatSignature(new Uint8Array(length)), Error);
+  }
+});
+
+test("asymmetric formatPublicKey accepts raw and DER keys and rejects others", () => {
+  const raw = base64.decode(asymPublicKey.slice("whpk_".length));
+  assert.equal(raw.length, 32);
+  assert.equal(WebhookAsymmetric.formatPublicKey(raw), asymPublicKey);
+  const prefix = Uint8Array.of(
+    0x30,
+    0x2a,
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x70,
+    0x03,
+    0x21,
+    0x00
+  );
+  const der = new Uint8Array([...prefix, ...raw]);
+  assert.equal(WebhookAsymmetric.formatPublicKey(der), asymPublicKey);
+  const badDer = der.slice();
+  badDer[0] = 0x31;
+  for (const key of [raw.subarray(0, 31), new Uint8Array([...raw, 0]), badDer]) {
+    assert.throws(() => WebhookAsymmetric.formatPublicKey(key), Error);
+  }
+});
+
+test("asymmetric signer constructor rejects invalid keys", () => {
+  assert.throws(
+    () => new WebhookAsymmetricSigner(asymSecretKey.slice("whsk_".length)),
+    Error
+  );
+  assert.throws(() => new WebhookAsymmetricSigner(asymPublicKey), Error);
+  assert.throws(() => new WebhookAsymmetricSigner("whsk_!!!"), Error);
+  assert.throws(() => new WebhookAsymmetricSigner("whsk_"), Error);
+  assert.throws(
+    () => new WebhookAsymmetricSigner(`whsk_${base64.encode(new Uint8Array(31))}`),
+    Error
+  );
+  assert.throws(
+    () => new WebhookAsymmetricSigner(`whsk_${base64.encode(new Uint8Array(64))}`),
+    Error
+  );
+  assert.throws(() => new WebhookAsymmetricSigner(undefined as any), Error);
+});
+
+test("asymmetric signing rejects invalid endpoint ids", () => {
+  for (const endpointId of ["", "ep.1"]) {
+    assert.throws(
+      () => asymSigner.sign(endpointId, asymMsgId, new Date(), asymPayload),
+      Error
+    );
+    assert.throws(
+      () =>
+        WebhookAsymmetric.signedContentHash(
+          endpointId,
+          asymMsgId,
+          new Date(),
+          asymPayload
+        ),
+      Error
+    );
+  }
+});
+
+test("asymmetric sign then verify round-trips", () => {
+  const timestamp = new Date();
+  const signature = asymSigner.sign(asymEndpointId, asymMsgId, timestamp, asymPayload);
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymSigner.publicKey()]);
+  const headers = {
+    "webhook-id": asymMsgId,
+    "webhook-timestamp": Math.floor(timestamp.getTime() / 1000).toString(),
+    "webhook-signature": signature,
+  };
+  assert.deepEqual(wh.verify(asymPayload, headers), JSON.parse(asymPayload));
+});
+
+test("asymmetric verify accepts the spec test vector", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: asymTimestamp * 1000 });
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const headers = {
+    "webhook-id": asymMsgId,
+    "webhook-timestamp": asymTimestamp.toString(),
+    "webhook-signature": `v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= ${asymSignature}`,
+  };
+  assert.deepEqual(wh.verify(asymPayload, headers), JSON.parse(asymPayload));
+});
+
+test("asymmetric valid signature is valid and returns valid json", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  assert.deepEqual(wh.verify(asymPayload, asymHeaders()), JSON.parse(asymPayload));
+  assert.equal(wh.verify(asymPayload, asymHeaders(), { jsonParse: false }), undefined);
+});
+
+test("asymmetric verify is case-insensitive for header names", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const headers = asymHeaders();
+  const upper: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    upper[key.toUpperCase()] = value;
+  }
+  assert.deepEqual(wh.verify(asymPayload, upper), JSON.parse(asymPayload));
+});
+
+test("asymmetric binary payload is valid", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const payload = Uint8Array.from([0xff, 0xfe, 0x00, 0x80]);
+  assert.equal(wh.verify(payload, asymHeaders(payload), { jsonParse: false }), undefined);
+});
+
+test("asymmetric valid signature after other signatures is valid", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const headers = asymHeaders();
+  headers["webhook-signature"] =
+    `v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1a,abc v2a,!!invalid v2a,AAAA ${headers["webhook-signature"]}`;
+  assert.deepEqual(wh.verify(asymPayload, headers), JSON.parse(asymPayload));
+});
+
+test("asymmetric signature by the second key in the list is valid", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [otherPublicKey, asymPublicKey]);
+  assert.deepEqual(wh.verify(asymPayload, asymHeaders()), JSON.parse(asymPayload));
+  assert.deepEqual(
+    wh.verify(asymPayload, asymHeaders(asymPayload, otherSigner)),
+    JSON.parse(asymPayload)
+  );
+});
+
+test("asymmetric signature by an untrusted key fails", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  assert.throws(() => {
+    wh.verify(asymPayload, asymHeaders(asymPayload, otherSigner));
+  }, WebhookVerificationError);
+});
+
+test("asymmetric wrong endpoint id fails", () => {
+  const wh = new WebhookAsymmetric("ep_other", [asymPublicKey]);
+  assert.throws(() => {
+    wh.verify(asymPayload, asymHeaders());
+  }, WebhookVerificationError);
+});
+
+test("asymmetric tampered payload fails", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const headers = asymHeaders();
+  assert.throws(() => {
+    wh.verify(`${asymPayload} `, headers);
+  }, WebhookVerificationError);
+});
+
+test("asymmetric v1 signature only fails", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const headers = asymHeaders();
+  headers["webhook-signature"] = headers["webhook-signature"].replace("v2a,", "v1,");
+  assert.throws(() => {
+    wh.verify(asymPayload, headers);
+  }, WebhookVerificationError);
+});
+
+test("asymmetric missing headers raise error", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  for (const header of ["webhook-id", "webhook-timestamp", "webhook-signature"]) {
+    const headers = asymHeaders();
+    delete headers[header];
+    assert.throws(
+      () => {
+        wh.verify(asymPayload, headers);
+      },
+      new WebhookVerificationError("Missing required headers"),
+      header
+    );
+  }
+});
+
+test("asymmetric old timestamp fails", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const timestamp = Math.floor((Date.now() - tolerance_in_ms) / 1000) - 5;
+  assert.throws(() => {
+    wh.verify(
+      asymPayload,
+      asymHeaders(asymPayload, asymSigner, asymEndpointId, timestamp)
+    );
+  }, new WebhookVerificationError("Message timestamp too old"));
+});
+
+test("asymmetric new timestamp fails", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey]);
+  const timestamp = Math.floor((Date.now() + tolerance_in_ms) / 1000) + 5;
+  assert.throws(() => {
+    wh.verify(
+      asymPayload,
+      asymHeaders(asymPayload, asymSigner, asymEndpointId, timestamp)
+    );
+  }, new WebhookVerificationError("Message timestamp too new"));
+});
+
+test("asymmetric constructor rejects invalid arguments", () => {
+  assert.throws(() => new WebhookAsymmetric(asymEndpointId, []), Error);
+  assert.throws(() => new WebhookAsymmetric(asymEndpointId, undefined as any), Error);
+  assert.throws(
+    () => new WebhookAsymmetric(asymEndpointId, [asymPublicKey.slice("whpk_".length)]),
+    Error
+  );
+  assert.throws(
+    () =>
+      new WebhookAsymmetric(asymEndpointId, [asymSecretKey.replace("whsk_", "whsec_")]),
+    Error
+  );
+  assert.throws(() => new WebhookAsymmetric(asymEndpointId, ["whpk_"]), Error);
+  assert.throws(
+    () =>
+      new WebhookAsymmetric(asymEndpointId, [
+        `whpk_${base64.encode(new Uint8Array(31))}`,
+      ]),
+    Error
+  );
+  assert.throws(
+    () =>
+      new WebhookAsymmetric(asymEndpointId, [
+        `whpk_${base64.encode(new Uint8Array(33))}`,
+      ]),
+    Error
+  );
+  assert.throws(() => new WebhookAsymmetric(asymEndpointId, ["whpk_!!!"]), Error);
+  assert.throws(
+    () => new WebhookAsymmetric(asymEndpointId, [asymPublicKey, "invalid"]),
+    Error
+  );
+  assert.throws(() => new WebhookAsymmetric("", [asymPublicKey]), Error);
+  assert.throws(() => new WebhookAsymmetric("ep.1", [asymPublicKey]), Error);
+});
+
+test("asymmetric challenge response matches test vector", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [asymPublicKey, otherPublicKey]);
+  assert.equal(wh.endpointVerificationResponse(asymChallenge), asymChallengeResponse);
+});
+
+test("asymmetric challenge response uses the first key", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [otherPublicKey, asymPublicKey]);
+  assert.notEqual(wh.endpointVerificationResponse(asymChallenge), asymChallengeResponse);
+});
+
+test("asymmetric challenge response depends on the endpoint id", () => {
+  const wh = new WebhookAsymmetric("ep_other", [asymPublicKey]);
+  assert.notEqual(wh.endpointVerificationResponse(asymChallenge), asymChallengeResponse);
+});
+
+test("asymmetric verify challenge response accepts any of the keys", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [otherPublicKey, asymPublicKey]);
+  wh.verifyEndpointVerificationResponse(asymChallenge, asymChallengeResponse);
+  wh.verifyEndpointVerificationResponse(
+    asymChallenge,
+    wh.endpointVerificationResponse(asymChallenge)
+  );
+});
+
+test("asymmetric verify challenge response rejects wrong responses", () => {
+  const wh = new WebhookAsymmetric(asymEndpointId, [otherPublicKey, asymPublicKey]);
+  for (const header of [
+    "v2a,p02It8u07wVKXUWJB4N8jl1LHoeidCN3wBffJ0vFVcQ=",
+    asymChallengeResponse.replace("v2a,", "v1,"),
+    `v1,abc ${asymChallengeResponse}`,
+    "",
+  ]) {
+    assert.throws(() => {
+      wh.verifyEndpointVerificationResponse(asymChallenge, header);
+    }, WebhookVerificationError);
+  }
+  assert.throws(() => {
+    wh.verifyEndpointVerificationResponse(
+      "1njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=",
+      asymChallengeResponse
+    );
+  }, WebhookVerificationError);
 });

@@ -1,12 +1,23 @@
 import array
 import base64
+import hashlib
+import json
 import typing as t
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from math import floor
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from standardwebhooks.webhooks import EmptyWebhookSecretError, Webhook, WebhookVerificationError, hmac_data
+from standardwebhooks import webhooks
+from standardwebhooks.webhooks import (
+    EmptyWebhookSecretError,
+    Webhook,
+    WebhookAsymmetric,
+    WebhookAsymmetricSigner,
+    WebhookVerificationError,
+    hmac_data,
+)
 
 DEFAULT_MSG_ID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
 DEFAULT_PAYLOAD = '{"test": 2432232314}'
@@ -406,3 +417,335 @@ def test_challenge_response_depends_on_secret() -> None:
     wh = Webhook("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSx")
     response = wh.endpoint_verification_response("0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=")
     assert response != "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="
+
+
+# Asymmetric signatures (v2a): test vectors from the spec
+
+ASYM_SECRET_KEY = "whsk_4uKPjji/dhB8w6GW3YYDnIMYvXcdHrvH6lidTr4Z+EY="
+ASYM_PUBLIC_KEY = "whpk_uWKK13PfwqyOgrqT0OrWKcS2uVD7e89+oUKnkoPjx7w="
+ASYM_ENDPOINT_ID = "ep_2fVZdC8Kx9TR4ZoCqHWt3NnLgRb"
+ASYM_MSG_ID = "msg_2KWPBgLlAfxdpx2AI54pPJ85f4W"
+ASYM_TIMESTAMP = 1674087231
+ASYM_PAYLOAD = '{"type":"contact.created","timestamp":"2022-11-03T20:26:10.344522Z","data":{"id":"1f81eb52-5198-4599-803e-771906343485"}}'
+ASYM_DIGEST = "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A="
+ASYM_SIGNATURE = "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg=="
+ASYM_CHALLENGE = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
+ASYM_CHALLENGE_RESPONSE = "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk="
+
+ASYM_PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(base64.b64decode(ASYM_SECRET_KEY[len("whsk_") :]))
+ASYM_SIGNER = WebhookAsymmetricSigner(ASYM_SECRET_KEY)
+# Another key, e.g. the producer's newer key after a rotation
+OTHER_SIGNER = WebhookAsymmetricSigner("whsk_" + base64.b64encode(bytes([7] * 32)).decode())
+OTHER_PUBLIC_KEY = OTHER_SIGNER.public_key()
+
+
+def asym_sign(
+    private_key: Ed25519PrivateKey, endpoint_id: str, msg_id: str, timestamp: int, payload: t.Union[bytes, str]
+) -> str:
+    payload_bytes = payload.encode() if isinstance(payload, str) else payload
+    content = f"{endpoint_id}.{msg_id}.{timestamp}.".encode() + payload_bytes
+    signature = private_key.sign(hashlib.sha256(content).digest())
+    return "v2a," + base64.b64encode(signature).decode()
+
+
+def asym_headers(
+    payload: t.Union[bytes, str] = ASYM_PAYLOAD,
+    signer: WebhookAsymmetricSigner = ASYM_SIGNER,
+    endpoint_id: str = ASYM_ENDPOINT_ID,
+    timestamp: t.Optional[int] = None,
+) -> t.Dict[str, str]:
+    if timestamp is None:
+        timestamp = floor(datetime.now(tz=timezone.utc).timestamp())
+    return {
+        "webhook-id": ASYM_MSG_ID,
+        "webhook-timestamp": str(timestamp),
+        "webhook-signature": signer.sign(
+            endpoint_id, ASYM_MSG_ID, datetime.fromtimestamp(timestamp, tz=timezone.utc), payload
+        ),
+    }
+
+
+def test_asymmetric_spec_test_vector_matches_ed25519_primitive() -> None:
+    public_key = ASYM_PRIVATE_KEY.public_key()
+    assert "whpk_" + base64.b64encode(public_key.public_bytes_raw()).decode() == ASYM_PUBLIC_KEY
+
+    content = f"{ASYM_ENDPOINT_ID}.{ASYM_MSG_ID}.{ASYM_TIMESTAMP}.{ASYM_PAYLOAD}".encode()
+    digest = hashlib.sha256(content).digest()
+    assert base64.b64encode(digest).decode() == ASYM_DIGEST
+    public_key.verify(base64.b64decode(ASYM_SIGNATURE[len("v2a,") :]), digest)
+    assert asym_sign(ASYM_PRIVATE_KEY, ASYM_ENDPOINT_ID, ASYM_MSG_ID, ASYM_TIMESTAMP, ASYM_PAYLOAD) == ASYM_SIGNATURE
+
+
+ASYM_DATETIME = datetime.fromtimestamp(ASYM_TIMESTAMP, tz=timezone.utc)
+
+
+def test_asymmetric_signer_spec_test_vector() -> None:
+    assert ASYM_SIGNER.public_key() == ASYM_PUBLIC_KEY
+    assert ASYM_SIGNER.sign(ASYM_ENDPOINT_ID, ASYM_MSG_ID, ASYM_DATETIME, ASYM_PAYLOAD) == ASYM_SIGNATURE
+    assert ASYM_SIGNER.sign(ASYM_ENDPOINT_ID, ASYM_MSG_ID, ASYM_DATETIME, ASYM_PAYLOAD.encode()) == ASYM_SIGNATURE
+
+
+def test_asymmetric_signed_content_hash_spec_test_vector() -> None:
+    digest = WebhookAsymmetric.signed_content_hash(ASYM_ENDPOINT_ID, ASYM_MSG_ID, ASYM_DATETIME, ASYM_PAYLOAD)
+    assert len(digest) == 32
+    assert base64.b64encode(digest).decode() == ASYM_DIGEST
+
+
+def test_asymmetric_hsm_flow_spec_test_vector() -> None:
+    digest = WebhookAsymmetric.signed_content_hash(ASYM_ENDPOINT_ID, ASYM_MSG_ID, ASYM_DATETIME, ASYM_PAYLOAD)
+    # Stand-in for the HSM's sign call
+    signature = ASYM_PRIVATE_KEY.sign(digest)
+    assert WebhookAsymmetric.format_signature(signature) == ASYM_SIGNATURE
+
+
+def test_asymmetric_format_signature_round_trip() -> None:
+    signature = bytes([0xAB] * 64)
+    formatted = WebhookAsymmetric.format_signature(signature)
+    assert formatted.startswith("v2a,")
+    assert base64.b64decode(formatted[len("v2a,") :]) == signature
+
+
+@pytest.mark.parametrize("length", [0, 32, 63, 65])
+def test_asymmetric_format_signature_rejects_wrong_length(length: int) -> None:
+    with pytest.raises(RuntimeError):
+        WebhookAsymmetric.format_signature(bytes(length))
+
+
+def test_asymmetric_format_public_key() -> None:
+    raw = base64.b64decode(ASYM_PUBLIC_KEY[len("whpk_") :])
+    assert len(raw) == 32
+    assert WebhookAsymmetric.format_public_key(raw) == ASYM_PUBLIC_KEY
+    der = bytes.fromhex("302a300506032b6570032100") + raw
+    assert WebhookAsymmetric.format_public_key(der) == ASYM_PUBLIC_KEY
+
+
+@pytest.mark.parametrize(
+    "public_key",
+    [
+        bytes(31),
+        bytes(33),
+        bytes.fromhex("312a300506032b6570032100") + bytes(32),
+    ],
+)
+def test_asymmetric_format_public_key_rejects_invalid(public_key: bytes) -> None:
+    with pytest.raises(RuntimeError):
+        WebhookAsymmetric.format_public_key(public_key)
+
+
+@pytest.mark.parametrize(
+    "secret_key",
+    [
+        ASYM_SECRET_KEY[len("whsk_") :],
+        ASYM_PUBLIC_KEY,
+        "whsk_!!!",
+        "whsk_",
+        "whsk_" + base64.b64encode(bytes(31)).decode(),
+        "whsk_" + base64.b64encode(bytes(64)).decode(),
+    ],
+)
+def test_asymmetric_signer_constructor_rejects_invalid_keys(secret_key: str) -> None:
+    with pytest.raises(RuntimeError):
+        WebhookAsymmetricSigner(secret_key)
+
+
+@pytest.mark.parametrize("endpoint_id", ["", "ep.1"])
+def test_asymmetric_signing_rejects_invalid_endpoint_id(endpoint_id: str) -> None:
+    now = datetime.now(tz=timezone.utc)
+    with pytest.raises(RuntimeError):
+        ASYM_SIGNER.sign(endpoint_id, ASYM_MSG_ID, now, ASYM_PAYLOAD)
+    with pytest.raises(RuntimeError):
+        WebhookAsymmetric.signed_content_hash(endpoint_id, ASYM_MSG_ID, now, ASYM_PAYLOAD)
+
+
+def test_asymmetric_sign_then_verify() -> None:
+    timestamp = datetime.now(tz=timezone.utc)
+    signature = ASYM_SIGNER.sign(ASYM_ENDPOINT_ID, ASYM_MSG_ID, timestamp, ASYM_PAYLOAD)
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_SIGNER.public_key()])
+    headers = {
+        "webhook-id": ASYM_MSG_ID,
+        "webhook-timestamp": str(floor(timestamp.timestamp())),
+        "webhook-signature": signature,
+    }
+    assert wh.verify(ASYM_PAYLOAD, headers) == json.loads(ASYM_PAYLOAD)
+
+
+def test_asymmetric_verify_accepts_spec_test_vector(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz: t.Optional[tzinfo] = None) -> "FrozenDatetime":
+            return cls.fromtimestamp(ASYM_TIMESTAMP, tz=tz)
+
+    monkeypatch.setattr(webhooks, "datetime", FrozenDatetime)
+
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    headers = {
+        "webhook-id": ASYM_MSG_ID,
+        "webhook-timestamp": str(ASYM_TIMESTAMP),
+        "webhook-signature": f"v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= {ASYM_SIGNATURE}",
+    }
+    assert wh.verify(ASYM_PAYLOAD, headers) == json.loads(ASYM_PAYLOAD)
+
+
+def test_asymmetric_valid_signature_is_valid_and_returns_json() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+
+    assert wh.verify(ASYM_PAYLOAD, asym_headers()) == json.loads(ASYM_PAYLOAD)
+    assert wh.verify(ASYM_PAYLOAD, asym_headers(), json_parse=False) is None
+
+
+def test_asymmetric_verify_is_case_insensitive_for_header_names() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    headers = {k.upper(): v for (k, v) in asym_headers().items()}
+
+    assert wh.verify(ASYM_PAYLOAD, headers) == json.loads(ASYM_PAYLOAD)
+
+
+def test_asymmetric_binary_payload_is_valid() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+
+    assert wh.verify(BINARY_PAYLOAD, asym_headers(BINARY_PAYLOAD), json_parse=False) is None
+
+
+def test_asymmetric_valid_signature_after_other_signatures_is_valid() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    headers = asym_headers()
+    headers["webhook-signature"] = (
+        "v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1a,abc v2a,!!invalid v2a,AAAA " + headers["webhook-signature"]
+    )
+
+    assert wh.verify(ASYM_PAYLOAD, headers) == json.loads(ASYM_PAYLOAD)
+
+
+def test_asymmetric_signature_by_second_key_is_valid() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [OTHER_PUBLIC_KEY, ASYM_PUBLIC_KEY])
+
+    assert wh.verify(ASYM_PAYLOAD, asym_headers()) == json.loads(ASYM_PAYLOAD)
+    assert wh.verify(ASYM_PAYLOAD, asym_headers(signer=OTHER_SIGNER)) == json.loads(ASYM_PAYLOAD)
+
+
+def test_asymmetric_signature_by_untrusted_key_fails() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+
+    with pytest.raises(WebhookVerificationError, match="No matching signature found"):
+        wh.verify(ASYM_PAYLOAD, asym_headers(signer=OTHER_SIGNER))
+
+
+def test_asymmetric_wrong_endpoint_id_fails() -> None:
+    wh = WebhookAsymmetric("ep_other", [ASYM_PUBLIC_KEY])
+
+    with pytest.raises(WebhookVerificationError, match="No matching signature found"):
+        wh.verify(ASYM_PAYLOAD, asym_headers())
+
+
+def test_asymmetric_tampered_payload_fails() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    headers = asym_headers()
+
+    with pytest.raises(WebhookVerificationError, match="No matching signature found"):
+        wh.verify(ASYM_PAYLOAD + " ", headers)
+
+
+def test_asymmetric_v1_signature_only_fails() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    headers = asym_headers()
+    headers["webhook-signature"] = headers["webhook-signature"].replace("v2a,", "v1,")
+
+    with pytest.raises(WebhookVerificationError, match="No matching signature found"):
+        wh.verify(ASYM_PAYLOAD, headers)
+
+
+@pytest.mark.parametrize("header", ["webhook-id", "webhook-timestamp", "webhook-signature"])
+def test_asymmetric_missing_header_raises_error(header: str) -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    headers = asym_headers()
+    del headers[header]
+
+    with pytest.raises(WebhookVerificationError, match="Missing required headers"):
+        wh.verify(ASYM_PAYLOAD, headers)
+
+
+def test_asymmetric_old_timestamp_fails() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    timestamp = floor((datetime.now(tz=timezone.utc) - TOLERANCE).timestamp()) - 5
+
+    with pytest.raises(WebhookVerificationError, match="Message timestamp too old"):
+        wh.verify(ASYM_PAYLOAD, asym_headers(timestamp=timestamp))
+
+
+def test_asymmetric_new_timestamp_fails() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY])
+    timestamp = floor((datetime.now(tz=timezone.utc) + TOLERANCE).timestamp()) + 5
+
+    with pytest.raises(WebhookVerificationError, match="Message timestamp too new"):
+        wh.verify(ASYM_PAYLOAD, asym_headers(timestamp=timestamp))
+
+
+@pytest.mark.parametrize(
+    "public_keys,endpoint_id",
+    [
+        ([], ASYM_ENDPOINT_ID),
+        (ASYM_PUBLIC_KEY, ASYM_ENDPOINT_ID),
+        ([ASYM_PUBLIC_KEY[len("whpk_") :]], ASYM_ENDPOINT_ID),
+        (["whsec_" + ASYM_PUBLIC_KEY[len("whpk_") :]], ASYM_ENDPOINT_ID),
+        (["whpk_"], ASYM_ENDPOINT_ID),
+        (["whpk_" + base64.b64encode(bytes(31)).decode()], ASYM_ENDPOINT_ID),
+        (["whpk_" + base64.b64encode(bytes(33)).decode()], ASYM_ENDPOINT_ID),
+        (["whpk_!!!"], ASYM_ENDPOINT_ID),
+        ([ASYM_PUBLIC_KEY, "invalid"], ASYM_ENDPOINT_ID),
+        ([ASYM_PUBLIC_KEY], ""),
+        ([ASYM_PUBLIC_KEY], "ep.1"),
+    ],
+)
+def test_asymmetric_constructor_rejects_invalid_arguments(public_keys: t.Any, endpoint_id: str) -> None:
+    with pytest.raises(RuntimeError):
+        WebhookAsymmetric(endpoint_id, public_keys)
+
+
+def test_asymmetric_challenge_response() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [ASYM_PUBLIC_KEY, OTHER_PUBLIC_KEY])
+
+    assert wh.endpoint_verification_response(ASYM_CHALLENGE) == ASYM_CHALLENGE_RESPONSE
+
+
+def test_asymmetric_challenge_response_uses_first_key() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [OTHER_PUBLIC_KEY, ASYM_PUBLIC_KEY])
+
+    assert wh.endpoint_verification_response(ASYM_CHALLENGE) != ASYM_CHALLENGE_RESPONSE
+
+
+def test_asymmetric_challenge_response_depends_on_endpoint_id() -> None:
+    wh = WebhookAsymmetric("ep_other", [ASYM_PUBLIC_KEY])
+
+    assert wh.endpoint_verification_response(ASYM_CHALLENGE) != ASYM_CHALLENGE_RESPONSE
+
+
+def test_asymmetric_verify_challenge_response_accepts_any_key() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [OTHER_PUBLIC_KEY, ASYM_PUBLIC_KEY])
+
+    wh.verify_endpoint_verification_response(ASYM_CHALLENGE, ASYM_CHALLENGE_RESPONSE)
+    wh.verify_endpoint_verification_response(ASYM_CHALLENGE, wh.endpoint_verification_response(ASYM_CHALLENGE))
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "v2a,p02It8u07wVKXUWJB4N8jl1LHoeidCN3wBffJ0vFVcQ=",
+        ASYM_CHALLENGE_RESPONSE.replace("v2a,", "v1,"),
+        "v1,abc " + ASYM_CHALLENGE_RESPONSE,
+        "",
+    ],
+)
+def test_asymmetric_verify_challenge_response_rejects_wrong_response(header: str) -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [OTHER_PUBLIC_KEY, ASYM_PUBLIC_KEY])
+
+    with pytest.raises(WebhookVerificationError):
+        wh.verify_endpoint_verification_response(ASYM_CHALLENGE, header)
+
+
+def test_asymmetric_verify_challenge_response_wrong_challenge() -> None:
+    wh = WebhookAsymmetric(ASYM_ENDPOINT_ID, [OTHER_PUBLIC_KEY, ASYM_PUBLIC_KEY])
+
+    with pytest.raises(WebhookVerificationError):
+        wh.verify_endpoint_verification_response(
+            "1njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=", ASYM_CHALLENGE_RESPONSE
+        )
