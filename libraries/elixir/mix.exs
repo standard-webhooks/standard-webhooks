@@ -30,7 +30,7 @@ defmodule StandardWebhooks.MixProject do
       {:plug, "~> 1.15"},
 
       # Dev
-      {:ex_doc, "~> 0.14", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
 
       # Test
       {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
@@ -45,9 +45,7 @@ defmodule StandardWebhooks.MixProject do
 
   defp package() do
     [
-      # These are the default files included in the package
-      files: ~w(lib priv .formatter.exs mix.exs README* readme* LICENSE*
-                license* CHANGELOG* changelog* src),
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
       licenses: ["Apache-2.0"],
       links: %{
         "GitHub" =>
