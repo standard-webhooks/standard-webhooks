@@ -6,7 +6,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -15,9 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
-import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
-import org.bouncycastle.crypto.signers.Ed25519Signer;
 import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
 
@@ -42,23 +38,17 @@ public class WebhookAsymmetricTest {
 	private static final String CHALLENGE_RESPONSE = "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk=";
 
 	// A second, unrelated key pair, for key rotation tests
-	private static final Ed25519PrivateKeyParameters OTHER_SECRET_KEY = new Ed25519PrivateKeyParameters(new byte[32], 0);
-	private static final String OTHER_PUBLIC_KEY = WebhookAsymmetricBase.PUBLIC_KEY_PREFIX
-		+ Base64.getEncoder().encodeToString(OTHER_SECRET_KEY.generatePublicKey().getEncoded());
+	private static final WebhookAsymmetricSigner OTHER_SECRET_KEY =
+		new WebhookAsymmetricSigner("whsk_" + Base64.getEncoder().encodeToString(new byte[32]));
+	private static final String OTHER_PUBLIC_KEY = OTHER_SECRET_KEY.publicKey();
 
-	private static Ed25519PrivateKeyParameters secretKey() {
-		byte[] seed = Base64.getDecoder().decode(SECRET_KEY.substring("whsk_".length()));
-		return new Ed25519PrivateKeyParameters(seed, 0);
+	private static WebhookAsymmetricSigner secretKey() {
+		return new WebhookAsymmetricSigner(SECRET_KEY);
 	}
 
-	private static String sign(final Ed25519PrivateKeyParameters key, final String endpointId, final String msgId,
+	private static String sign(final WebhookAsymmetricSigner key, final String endpointId, final String msgId,
 			final long timestamp, final String payload) throws Exception {
-		String content = String.format("%s.%s.%s.%s", endpointId, msgId, timestamp, payload);
-		byte[] digest = MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8));
-		Ed25519Signer signer = new Ed25519Signer();
-		signer.init(true, key);
-		signer.update(digest, 0, digest.length);
-		return "v2a," + Base64.getEncoder().encodeToString(signer.generateSignature());
+		return key.sign(endpointId, msgId, timestamp, payload);
 	}
 
 	private static long now() {
@@ -98,12 +88,10 @@ public class WebhookAsymmetricTest {
 
 	@Test
 	public void verifySpecVector() throws Exception {
-		String content = String.format("%s.%s.%s.%s", ENDPOINT_ID, MSG_ID, TIMESTAMP, PAYLOAD);
-		byte[] digest = MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8));
+		byte[] digest = WebhookAsymmetric.signedContentHash(ENDPOINT_ID, MSG_ID, TIMESTAMP, PAYLOAD);
 		assertEquals(DIGEST, Base64.getEncoder().encodeToString(digest));
 
-		Ed25519PublicKeyParameters publicKey = secretKey().generatePublicKey();
-		assertEquals(PUBLIC_KEY, "whpk_" + Base64.getEncoder().encodeToString(publicKey.getEncoded()));
+		assertEquals(PUBLIC_KEY, secretKey().publicKey());
 		assertEquals(SIGNATURE, sign(secretKey(), ENDPOINT_ID, MSG_ID, TIMESTAMP, PAYLOAD));
 
 		// The vector's timestamp is outside the tolerance, so skip the timestamp check
@@ -225,6 +213,85 @@ public class WebhookAsymmetricTest {
 		assertThrows(IllegalArgumentException.class, construct(ENDPOINT_ID, Collections.singletonList("whpk_not base64!")));
 		assertThrows(IllegalArgumentException.class, construct("", keys));
 		assertThrows(IllegalArgumentException.class, construct("ep_1.2", keys));
+	}
+
+	@Test
+	public void signerRoundTrip() throws Exception {
+		WebhookAsymmetricSigner signer = new WebhookAsymmetricSigner(SECRET_KEY);
+		long timestamp = now();
+		String signature = signer.sign(ENDPOINT_ID, MSG_ID, timestamp, PAYLOAD);
+		webhook(signer.publicKey()).verify(PAYLOAD, headers(MSG_ID, timestamp, signature));
+	}
+
+	@Test
+	public void signerConstructorErrors() {
+		String unprefixed = SECRET_KEY.substring("whsk_".length());
+		for (final String key : Arrays.asList(null, unprefixed, "whpk_" + unprefixed, PUBLIC_KEY,
+				"whsk_not base64!", "whsk_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw", "whsk_")) {
+			assertThrows(key, IllegalArgumentException.class, new ThrowingRunnable() {
+				@Override
+				public void run() {
+					new WebhookAsymmetricSigner(key);
+				}
+			});
+		}
+	}
+
+	@Test
+	public void signingWithInvalidEndpointIdThrowsException() {
+		final WebhookAsymmetricSigner signer = secretKey();
+		for (final String endpointId : Arrays.asList(null, "", "ep_1.2")) {
+			assertThrows(IllegalArgumentException.class, new ThrowingRunnable() {
+				@Override
+				public void run() throws WebhookSigningException {
+					WebhookAsymmetric.signedContentHash(endpointId, MSG_ID, now(), PAYLOAD);
+				}
+			});
+			assertThrows(IllegalArgumentException.class, new ThrowingRunnable() {
+				@Override
+				public void run() throws WebhookSigningException {
+					signer.sign(endpointId, MSG_ID, now(), PAYLOAD);
+				}
+			});
+		}
+	}
+
+	@Test
+	public void formatSignature() {
+		byte[] signature = Base64.getDecoder().decode(SIGNATURE.substring("v2a,".length()));
+		assertEquals(SIGNATURE, WebhookAsymmetric.formatSignature(signature));
+
+		for (final byte[] invalid : Arrays.asList(new byte[63], new byte[65], new byte[0], null)) {
+			assertThrows(IllegalArgumentException.class, new ThrowingRunnable() {
+				@Override
+				public void run() {
+					WebhookAsymmetric.formatSignature(invalid);
+				}
+			});
+		}
+	}
+
+	@Test
+	public void formatPublicKey() {
+		byte[] raw = Base64.getDecoder().decode(PUBLIC_KEY.substring("whpk_".length()));
+		assertEquals(32, raw.length);
+		assertEquals(PUBLIC_KEY, WebhookAsymmetric.formatPublicKey(raw));
+
+		byte[] prefix = { 0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00 };
+		byte[] der = Arrays.copyOf(prefix, prefix.length + raw.length);
+		System.arraycopy(raw, 0, der, prefix.length, raw.length);
+		assertEquals(PUBLIC_KEY, WebhookAsymmetric.formatPublicKey(der));
+
+		byte[] wrongPrefix = der.clone();
+		wrongPrefix[0] = 0x31;
+		for (final byte[] invalid : Arrays.asList(Arrays.copyOf(raw, 31), Arrays.copyOf(raw, 33), wrongPrefix, null)) {
+			assertThrows(IllegalArgumentException.class, new ThrowingRunnable() {
+				@Override
+				public void run() {
+					WebhookAsymmetric.formatPublicKey(invalid);
+				}
+			});
+		}
 	}
 
 	@Test

@@ -8,7 +8,10 @@ from datetime import datetime, timedelta, timezone
 from math import floor
 
 if t.TYPE_CHECKING:
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+
+# DER prefix of an ed25519 SubjectPublicKeyInfo, followed by the raw 32 byte key
+_ED25519_SPKI_PREFIX = bytes.fromhex("302a300506032b6570032100")
 
 
 def hmac_data(key: bytes, data: bytes) -> bytes:
@@ -179,22 +182,29 @@ class Webhook:
             raise WebhookVerificationError("No matching signature found")
 
 
-def _import_ed25519() -> t.Any:
+def _import_ed25519(name: str = "WebhookAsymmetric") -> t.Any:
     try:
         from cryptography.hazmat.primitives.asymmetric import ed25519
     except ImportError as e:
         raise ImportError(
-            "WebhookAsymmetric requires the 'cryptography' package. "
-            "Install it with: pip install 'standardwebhooks[asymmetric]'"
+            f"{name} requires the 'cryptography' package. Install it with: pip install 'standardwebhooks[asymmetric]'"
         ) from e
     return ed25519
+
+
+def _validate_endpoint_id(endpoint_id: str) -> None:
+    if not isinstance(endpoint_id, str) or not endpoint_id:
+        raise RuntimeError("Endpoint ID may not be empty")
+    if "." in endpoint_id:
+        raise RuntimeError("Endpoint ID may not contain '.'")
 
 
 class WebhookAsymmetric:
     """
     Verify webhooks signed with asymmetric (`v2a`, ed25519) signatures.
 
-    Only verification is supported: producers are expected to sign using a KMS or an HSM.
+    Producers can sign using `WebhookAsymmetricSigner`, or with a KMS or an HSM using
+    `WebhookAsymmetric.signed_content_hash` and `WebhookAsymmetric.format_signature`.
 
     Requires the `asymmetric` extra: `pip install 'standardwebhooks[asymmetric]'`.
     """
@@ -237,11 +247,64 @@ class WebhookAsymmetric:
             self._public_keys.append(key)
             self._verifiers.append(verifier)
 
-        if not isinstance(endpoint_id, str) or not endpoint_id:
-            raise RuntimeError("Endpoint ID may not be empty")
-        if "." in endpoint_id:
-            raise RuntimeError("Endpoint ID may not contain '.'")
+        _validate_endpoint_id(endpoint_id)
         self._endpoint_id = endpoint_id
+
+    @staticmethod
+    def signed_content_hash(endpoint_id: str, msg_id: str, timestamp: datetime, data: t.Union[bytes, str]) -> bytes:
+        """
+        The SHA-256 hash (raw 32 bytes) of the content signed by `v2a` signatures
+        (`endpoint_id.msg_id.timestamp.payload`).
+
+        For producers that sign with a KMS or an HSM: sign the returned hash using (pure)
+        ed25519, and pass the signature to `format_signature`.
+
+        Doesn't require the `asymmetric` extra.
+
+        Args:
+            endpoint_id: The ID of the endpoint the webhook is sent to.
+            msg_id: The unique message id (sent as the `webhook-id` header).
+            timestamp: The message timestamp (sent as the `webhook-timestamp` header).
+                Naive datetimes are interpreted as UTC.
+            data: The raw payload. bytes are hashed byte for byte. A str is hashed as its
+                UTF-8 encoding.
+        """
+        _validate_endpoint_id(endpoint_id)
+        content = f"{endpoint_id}.{msg_id}.{_timestamp_str(timestamp)}.".encode() + _payload_bytes(data)
+        return hashlib.sha256(content).digest()
+
+    @staticmethod
+    def format_signature(signature: bytes) -> str:
+        """
+        Format a raw 64 byte ed25519 signature for the `webhook-signature` header
+        (`v2a,<base64 signature>`).
+
+        Doesn't require the `asymmetric` extra.
+        """
+        if not isinstance(signature, (bytes, bytearray)) or len(signature) != 64:
+            raise RuntimeError("Invalid signature: must be 64 bytes")
+        return f"v2a,{base64.b64encode(signature).decode('utf-8')}"
+
+    @staticmethod
+    def format_public_key(public_key: bytes) -> str:
+        """
+        Format an ed25519 public key as `whpk_<base64 public key>`, to share with consumers.
+
+        Accepts either the raw 32 byte public key, or the DER encoded SubjectPublicKeyInfo of an
+        ed25519 public key (e.g. what AWS KMS `GetPublicKey` returns).
+
+        Doesn't require the `asymmetric` extra.
+        """
+        if not isinstance(public_key, (bytes, bytearray)):
+            raise RuntimeError("Invalid public key: must be bytes")
+        raw = bytes(public_key)
+        if len(raw) == len(_ED25519_SPKI_PREFIX) + 32:
+            if not raw.startswith(_ED25519_SPKI_PREFIX):
+                raise RuntimeError("Invalid public key: not an ed25519 SubjectPublicKeyInfo")
+            raw = raw[len(_ED25519_SPKI_PREFIX) :]
+        if len(raw) != 32:
+            raise RuntimeError("Invalid public key: must be 32 bytes")
+        return f"whpk_{base64.b64encode(raw).decode('utf-8')}"
 
     def verify(
         self,
@@ -272,8 +335,7 @@ class WebhookAsymmetric:
         payload = _payload_bytes(data)
         msg_id, msg_signature, timestamp = _parse_headers(headers)
 
-        content = f"{self._endpoint_id}.{msg_id}.{_timestamp_str(timestamp)}.".encode() + payload
-        digest = hashlib.sha256(content).digest()
+        digest = self.signed_content_hash(self._endpoint_id, msg_id, timestamp, payload)
 
         for versioned_sig in msg_signature.split(" "):
             version, _, encoded_sig = versioned_sig.partition(",")
@@ -332,3 +394,60 @@ class WebhookAsymmetric:
 
     def __challenge_response(self, public_key: bytes, challenge: str) -> str:
         return _challenge_response(public_key + b"." + self._endpoint_id.encode(), challenge, "v2a")
+
+
+class WebhookAsymmetricSigner:
+    """
+    Sign webhooks with asymmetric (`v2a`, ed25519) signatures, using a private key you hold.
+
+    It's recommended to hold the private key in a KMS or an HSM instead, and sign using
+    `WebhookAsymmetric.signed_content_hash` and `WebhookAsymmetric.format_signature`.
+
+    A signer isn't tied to an endpoint: one key pair can serve all endpoints.
+
+    Requires the `asymmetric` extra: `pip install 'standardwebhooks[asymmetric]'`.
+    """
+
+    _SECRET_KEY_PREFIX: str = "whsk_"
+    _signer: "Ed25519PrivateKey"
+    _public_key: bytes
+
+    def __init__(self, secret_key: str):
+        """
+        Args:
+            secret_key: The secret key: `whsk_` followed by the base64 encoded 32 byte
+                ed25519 seed (private key).
+        """
+        ed25519 = _import_ed25519("WebhookAsymmetricSigner")
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        if not isinstance(secret_key, str) or not secret_key.startswith(self._SECRET_KEY_PREFIX):
+            raise RuntimeError(f"Invalid secret key: must start with '{self._SECRET_KEY_PREFIX}'")
+        try:
+            seed = base64.b64decode(secret_key[len(self._SECRET_KEY_PREFIX) :], validate=True)
+        except binascii.Error:
+            raise RuntimeError("Invalid secret key: not valid base64")
+        if len(seed) != 32:
+            raise RuntimeError(f"Invalid secret key: must be 32 bytes, got {len(seed)}")
+        self._signer = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+        self._public_key = self._signer.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+
+    def sign(self, endpoint_id: str, msg_id: str, timestamp: datetime, data: t.Union[bytes, str]) -> str:
+        """
+        Sign the given payload sent to the given endpoint, and return the versioned signature
+        string (`v2a,<base64 signature>`) for the `webhook-signature` header.
+
+        Args:
+            endpoint_id: The ID of the endpoint the webhook is sent to.
+            msg_id: The unique message id (sent as the `webhook-id` header).
+            timestamp: The message timestamp (sent as the `webhook-timestamp` header).
+                Naive datetimes are interpreted as UTC.
+            data: The raw payload. bytes are signed byte for byte. A str is signed as its
+                UTF-8 encoding.
+        """
+        digest = WebhookAsymmetric.signed_content_hash(endpoint_id, msg_id, timestamp, data)
+        return WebhookAsymmetric.format_signature(self._signer.sign(digest))
+
+    def public_key(self) -> str:
+        """The public key (`whpk_...`) matching the secret key, to share with consumers."""
+        return WebhookAsymmetric.format_public_key(self._public_key)

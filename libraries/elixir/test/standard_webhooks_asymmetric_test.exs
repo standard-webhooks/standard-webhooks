@@ -3,6 +3,7 @@ defmodule StandardWebhooks.AsymmetricTest do
   use Plug.Test
 
   alias StandardWebhooks.Asymmetric
+  alias StandardWebhooks.AsymmetricSigner
 
   @id "msg_p5jXN8AQM9LWM0D4loKWxJek"
   @tolerance 5 * 60
@@ -13,6 +14,9 @@ defmodule StandardWebhooks.AsymmetricTest do
   @challenge "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
   @challenge_response "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk="
   @spec_signature "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg=="
+  @spec_msg_id "msg_2KWPBgLlAfxdpx2AI54pPJ85f4W"
+  @spec_timestamp 1_674_087_231
+  @spec_content_hash "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A="
   @other_signatures [
     "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=",
     "v2a,not-base64!",
@@ -276,7 +280,144 @@ defmodule StandardWebhooks.AsymmetricTest do
     end
   end
 
+  describe "signed_content_hash/4" do
+    test "matches the spec test vector" do
+      payload = spec_payload()
+      hash = Asymmetric.signed_content_hash(@endpoint_id, @spec_msg_id, @spec_timestamp, payload)
+
+      assert byte_size(hash) == 32
+      assert @spec_content_hash == Base.encode64(hash)
+    end
+
+    test "raises error when endpoint id is invalid" do
+      assert_raise ArgumentError, "Endpoint ID must not be empty", fn ->
+        Asymmetric.signed_content_hash("", @id, now(), @payload)
+      end
+
+      assert_raise ArgumentError, ~s(Endpoint ID must not contain a "."), fn ->
+        Asymmetric.signed_content_hash("ep_1.2", @id, now(), @payload)
+      end
+    end
+
+    test "raises error when timestamp is not an integer" do
+      assert_raise ArgumentError, "Message timestamp must be an integer", fn ->
+        Asymmetric.signed_content_hash(@endpoint_id, @id, to_string(now()), @payload)
+      end
+    end
+  end
+
+  describe "format_signature/1" do
+    test "round-trips a signature" do
+      "v2a," <> signature = @spec_signature
+
+      assert @spec_signature == Asymmetric.format_signature(Base.decode64!(signature))
+    end
+
+    test "raises error when the signature has the wrong length" do
+      for signature <- [:binary.copy("a", 63), :binary.copy("a", 65), ""] do
+        assert_raise ArgumentError, "Signature must be 64 bytes", fn ->
+          Asymmetric.format_signature(signature)
+        end
+      end
+    end
+  end
+
+  describe "format_public_key/1" do
+    @raw_public_key Base.decode64!("uWKK13PfwqyOgrqT0OrWKcS2uVD7e89+oUKnkoPjx7w=")
+
+    test "formats a raw public key" do
+      assert @public_key == Asymmetric.format_public_key(@raw_public_key)
+    end
+
+    test "formats a DER encoded SubjectPublicKeyInfo" do
+      der = Base.decode16!("302A300506032B6570032100") <> @raw_public_key
+      assert @public_key == Asymmetric.format_public_key(der)
+    end
+
+    test "raises error when the public key is invalid" do
+      bad_der = Base.decode16!("312A300506032B6570032100") <> @raw_public_key
+
+      for public_key <- [:binary.copy("a", 31), :binary.copy("a", 33), bad_der] do
+        assert_raise ArgumentError,
+                     "Public key must be 32 raw bytes or a DER encoded ed25519 SubjectPublicKeyInfo",
+                     fn -> Asymmetric.format_public_key(public_key) end
+      end
+    end
+  end
+
+  describe "AsymmetricSigner.new/1" do
+    test "raises error when secret key is missing the prefix" do
+      assert_raise ArgumentError, ~s(Secret key must start with "whsk_"), fn ->
+        AsymmetricSigner.new(String.replace_prefix(@secret_key, "whsk_", ""))
+      end
+    end
+
+    test "raises error when given a public key" do
+      assert_raise ArgumentError, ~s(Secret key must start with "whsk_"), fn ->
+        AsymmetricSigner.new(@public_key)
+      end
+    end
+
+    test "raises error when secret key is not valid base64" do
+      assert_raise ArgumentError, fn ->
+        AsymmetricSigner.new("whsk_not-base64!")
+      end
+    end
+
+    test "raises error when secret key has the wrong length" do
+      for seed <- [:binary.copy("a", 31), :binary.copy("a", 33), ""] do
+        assert_raise ArgumentError, fn ->
+          AsymmetricSigner.new("whsk_" <> Base.encode64(seed))
+        end
+      end
+    end
+
+    test "does not include the seed when inspected" do
+      refute inspect(AsymmetricSigner.new(@secret_key)) =~ "seed"
+    end
+  end
+
+  describe "AsymmetricSigner" do
+    setup do
+      {:ok, signer: AsymmetricSigner.new(@secret_key)}
+    end
+
+    test "public key matches the spec test vector", %{signer: signer} do
+      assert @public_key == AsymmetricSigner.public_key(signer)
+    end
+
+    test "signature matches the spec test vector", %{signer: signer} do
+      signature =
+        AsymmetricSigner.sign(@endpoint_id, @spec_msg_id, @spec_timestamp, spec_payload(), signer)
+
+      assert @spec_signature == signature
+    end
+
+    test "raises error when endpoint id is invalid", %{signer: signer} do
+      assert_raise ArgumentError, "Endpoint ID must not be empty", fn ->
+        AsymmetricSigner.sign("", @id, now(), @payload, signer)
+      end
+
+      assert_raise ArgumentError, ~s(Endpoint ID must not contain a "."), fn ->
+        AsymmetricSigner.sign("ep_1.2", @id, now(), @payload, signer)
+      end
+    end
+
+    test "signatures verify with Asymmetric", %{signer: signer} do
+      timestamp = now()
+      signature = AsymmetricSigner.sign(@endpoint_id, @id, timestamp, @payload, signer)
+      webhook = Asymmetric.new(@endpoint_id, [AsymmetricSigner.public_key(signer)])
+
+      assert Asymmetric.verify(@payload, setup_webhook(signature, timestamp), webhook)
+    end
+  end
+
   defp now, do: :os.system_time(:second)
+
+  defp spec_payload do
+    ~s({"type":"contact.created","timestamp":"2022-11-03T20:26:10.344522Z",) <>
+      ~s("data":{"id":"1f81eb52-5198-4599-803e-771906343485"}})
+  end
 
   defp spec_seed do
     "whsk_" <> seed = @secret_key
@@ -289,11 +430,9 @@ defmodule StandardWebhooks.AsymmetricTest do
   end
 
   defp sign(seed, endpoint_id, timestamp, payload \\ @payload) do
-    content = "#{endpoint_id}.#{@id}.#{timestamp}." <> payload
-    digest = :crypto.hash(:sha256, content)
-    signature = :crypto.sign(:eddsa, :none, digest, [seed, :ed25519])
+    signer = AsymmetricSigner.new("whsk_" <> Base.encode64(seed))
 
-    "v2a," <> Base.encode64(signature)
+    AsymmetricSigner.sign(endpoint_id, @id, timestamp, payload, signer)
   end
 
   defp signed_webhook(seed, endpoint_id) do

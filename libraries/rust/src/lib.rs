@@ -11,7 +11,7 @@ use time::OffsetDateTime;
 
 mod asymmetric;
 
-pub use asymmetric::{WebhookAsymmetric, WebhookAsymmetricError};
+pub use asymmetric::{WebhookAsymmetric, WebhookAsymmetricError, WebhookAsymmetricSigner};
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum WebhookError {

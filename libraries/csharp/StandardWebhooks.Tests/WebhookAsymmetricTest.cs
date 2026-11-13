@@ -1,12 +1,10 @@
 using Xunit;
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Signers;
 
 using StandardWebhooks.Exceptions;
 
@@ -28,28 +26,16 @@ namespace StandardWebhooks.Tests
         private const string CHALLENGE = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
         private const string CHALLENGE_RESPONSE = "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk=";
 
-        private static readonly Ed25519PrivateKeyParameters SecretKey =
-            new Ed25519PrivateKeyParameters(Convert.FromBase64String(SECRET_KEY.Substring("whsk_".Length)), 0);
+        private static readonly WebhookAsymmetricSigner SecretKey = new WebhookAsymmetricSigner(SECRET_KEY);
 
         // A second, unrelated key pair, for key rotation tests
-        private static readonly Ed25519PrivateKeyParameters OtherSecretKey = new Ed25519PrivateKeyParameters(new byte[32], 0);
-        private static readonly string OtherPublicKey = "whpk_" + Convert.ToBase64String(OtherSecretKey.GeneratePublicKey().GetEncoded());
+        private static readonly WebhookAsymmetricSigner OtherSecretKey =
+            new WebhookAsymmetricSigner("whsk_" + Convert.ToBase64String(new byte[32]));
+        private static readonly string OtherPublicKey = OtherSecretKey.PublicKey();
 
-        private static byte[] Digest(string endpointId, string msgId, long timestamp, string payload)
+        private static string Sign(WebhookAsymmetricSigner key, string endpointId, string msgId, long timestamp, string payload)
         {
-            using (var sha256 = SHA256.Create())
-            {
-                return sha256.ComputeHash(Encoding.UTF8.GetBytes($"{endpointId}.{msgId}.{timestamp}.{payload}"));
-            }
-        }
-
-        private static string Sign(Ed25519PrivateKeyParameters key, string endpointId, string msgId, long timestamp, string payload)
-        {
-            var digest = Digest(endpointId, msgId, timestamp, payload);
-            var signer = new Ed25519Signer();
-            signer.Init(true, key);
-            signer.BlockUpdate(digest, 0, digest.Length);
-            return "v2a," + Convert.ToBase64String(signer.GenerateSignature());
+            return key.Sign(endpointId, msgId, DateTimeOffset.FromUnixTimeSeconds(timestamp), payload);
         }
 
         private static WebHeaderCollection Headers(string msgId, long timestamp, string signature)
@@ -74,8 +60,9 @@ namespace StandardWebhooks.Tests
         [Fact]
         public void TestSpecVector()
         {
-            Assert.Equal(DIGEST, Convert.ToBase64String(Digest(ENDPOINT_ID, MSG_ID, TIMESTAMP, PAYLOAD)));
-            Assert.Equal(PUBLIC_KEY, "whpk_" + Convert.ToBase64String(SecretKey.GeneratePublicKey().GetEncoded()));
+            var timestamp = DateTimeOffset.FromUnixTimeSeconds(TIMESTAMP);
+            Assert.Equal(DIGEST, Convert.ToBase64String(WebhookAsymmetric.SignedContentHash(ENDPOINT_ID, MSG_ID, timestamp, PAYLOAD)));
+            Assert.Equal(PUBLIC_KEY, SecretKey.PublicKey());
             Assert.Equal(SIGNATURE, Sign(SecretKey, ENDPOINT_ID, MSG_ID, TIMESTAMP, PAYLOAD));
 
             // The vector's timestamp is outside the tolerance, so skip the timestamp check
@@ -184,6 +171,69 @@ namespace StandardWebhooks.Tests
             Assert.Throws<ArgumentException>(() => Wh("whpk_not base64!"));
             Assert.Throws<ArgumentException>(() => new WebhookAsymmetric("", new[] { PUBLIC_KEY }));
             Assert.Throws<ArgumentException>(() => new WebhookAsymmetric("ep_1.2", new[] { PUBLIC_KEY }));
+        }
+
+        [Fact]
+        public void TestSignerRoundTrip()
+        {
+            var signer = new WebhookAsymmetricSigner(SECRET_KEY);
+            var timestamp = DateTimeOffset.UtcNow;
+            var signature = signer.Sign(ENDPOINT_ID, MSG_ID, timestamp, PAYLOAD);
+            Wh(signer.PublicKey()).Verify(PAYLOAD, Headers(MSG_ID, timestamp.ToUnixTimeSeconds(), signature));
+        }
+
+        [Fact]
+        public void TestSignerConstructorErrors()
+        {
+            var unprefixed = SECRET_KEY.Substring("whsk_".Length);
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner(null));
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner(unprefixed));
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner("whpk_" + unprefixed));
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner(PUBLIC_KEY));
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner("whsk_not base64!"));
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner("whsk_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"));
+            Assert.Throws<ArgumentException>(() => new WebhookAsymmetricSigner("whsk_"));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(null)]
+        [InlineData("ep_1.2")]
+        public void TestSigningWithInvalidEndpointIdThrowsException(string endpointId)
+        {
+            var timestamp = DateTimeOffset.UtcNow;
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.SignedContentHash(endpointId, MSG_ID, timestamp, PAYLOAD));
+            Assert.Throws<ArgumentException>(() => SecretKey.Sign(endpointId, MSG_ID, timestamp, PAYLOAD));
+        }
+
+        [Fact]
+        public void TestFormatSignature()
+        {
+            var signature = Convert.FromBase64String(SIGNATURE.Substring("v2a,".Length));
+            Assert.Equal(SIGNATURE, WebhookAsymmetric.FormatSignature(signature));
+
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatSignature(new byte[63]));
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatSignature(new byte[65]));
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatSignature(new byte[0]));
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatSignature(null));
+        }
+
+        [Fact]
+        public void TestFormatPublicKey()
+        {
+            var raw = Convert.FromBase64String(PUBLIC_KEY.Substring("whpk_".Length));
+            Assert.Equal(32, raw.Length);
+            Assert.Equal(PUBLIC_KEY, WebhookAsymmetric.FormatPublicKey(raw));
+
+            var der = new byte[] { 0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00 }.Concat(raw).ToArray();
+            Assert.Equal(PUBLIC_KEY, WebhookAsymmetric.FormatPublicKey(der));
+
+            var wrongPrefix = (byte[])der.Clone();
+            wrongPrefix[0] = 0x31;
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatPublicKey(raw.Take(31).ToArray()));
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatPublicKey(raw.Concat(new byte[] { 0 }).ToArray()));
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatPublicKey(wrongPrefix));
+            Assert.Throws<ArgumentException>(() => WebhookAsymmetric.FormatPublicKey(null));
         }
 
         [Fact]

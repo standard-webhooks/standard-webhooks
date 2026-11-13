@@ -4,6 +4,21 @@ import * as sha256 from "fast-sha256";
 import { timingSafeEqual } from "./timing_safe_equal";
 
 const WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60; // 5 minutes
+// DER prefix of an ed25519 SubjectPublicKeyInfo, followed by the raw 32 byte key
+const ED25519_SPKI_PREFIX = Uint8Array.of(
+  0x30,
+  0x2a,
+  0x30,
+  0x05,
+  0x06,
+  0x03,
+  0x2b,
+  0x65,
+  0x70,
+  0x03,
+  0x21,
+  0x00
+);
 
 class ExtendableError extends Error {
   constructor(message: any) {
@@ -112,6 +127,15 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   ret.set(a);
   ret.set(b, a.length);
   return ret;
+}
+
+function validateEndpointId(endpointId: string): void {
+  if (typeof endpointId !== "string" || endpointId.length === 0) {
+    throw new Error("Endpoint ID can't be empty.");
+  }
+  if (endpointId.includes(".")) {
+    throw new Error('Endpoint ID can\'t contain ".".');
+  }
 }
 
 /** The response to an endpoint verification challenge, for the given endpoint key. */
@@ -232,7 +256,8 @@ export class Webhook {
 
 /** Verify webhooks signed with asymmetric (`v2a`, ed25519) signatures.
  *
- * Only verification is supported: producers are expected to sign using a KMS or an HSM.
+ * Producers can sign using `WebhookAsymmetricSigner`, or with a KMS or an HSM using
+ * `WebhookAsymmetric.signedContentHash` and `WebhookAsymmetric.formatSignature`.
  */
 export class WebhookAsymmetric {
   private static prefix = "whpk_";
@@ -265,13 +290,69 @@ export class WebhookAsymmetric {
       }
       return key;
     });
-    if (typeof endpointId !== "string" || endpointId.length === 0) {
-      throw new Error("Endpoint ID can't be empty.");
-    }
-    if (endpointId.includes(".")) {
-      throw new Error('Endpoint ID can\'t contain ".".');
-    }
+    validateEndpointId(endpointId);
     this.endpointId = endpointId;
+  }
+
+  /** The SHA-256 hash (raw 32 bytes) of the content signed by `v2a` signatures
+   * (`endpoint_id.msg_id.timestamp.payload`).
+   *
+   * For producers that sign with a KMS or an HSM: sign the returned hash using (pure)
+   * ed25519, and pass the signature to `formatSignature`.
+   *
+   * A `Buffer` or `Uint8Array` payload is hashed byte for byte. A string is hashed as its
+   * UTF-8 encoding.
+   */
+  public static signedContentHash(
+    endpointId: string,
+    msgId: string,
+    timestamp: Date,
+    payload: string | Uint8Array
+  ): Uint8Array {
+    validateEndpointId(endpointId);
+    const bytes = payloadBytes(payload);
+    const timestampNumber = Math.floor(timestamp.getTime() / 1000);
+    const prefix = new TextEncoder().encode(`${endpointId}.${msgId}.${timestampNumber}.`);
+    return sha256.hash(concatBytes(prefix, bytes));
+  }
+
+  /** Format a raw 64 byte ed25519 signature for the `webhook-signature` header
+   * (`v2a,<base64 signature>`).
+   */
+  public static formatSignature(signature: Uint8Array): string {
+    if (
+      !(ArrayBuffer.isView(signature) && signature.BYTES_PER_ELEMENT === 1) ||
+      signature.byteLength !== ed25519.SIGNATURE_LENGTH
+    ) {
+      throw new Error(`Signature must be ${ed25519.SIGNATURE_LENGTH} bytes.`);
+    }
+    return `v2a,${base64.encode(signature)}`;
+  }
+
+  /** Format an ed25519 public key as `whpk_<base64 public key>`, to share with consumers.
+   *
+   * Accepts either the raw 32 byte public key, or the DER encoded SubjectPublicKeyInfo of an
+   * ed25519 public key (e.g. what AWS KMS `GetPublicKey` returns).
+   */
+  public static formatPublicKey(publicKey: Uint8Array): string {
+    if (!(ArrayBuffer.isView(publicKey) && publicKey.BYTES_PER_ELEMENT === 1)) {
+      throw new Error("Public key must be bytes.");
+    }
+    let raw = new Uint8Array(
+      publicKey.buffer,
+      publicKey.byteOffset,
+      publicKey.byteLength
+    );
+    if (raw.byteLength === ED25519_SPKI_PREFIX.length + ed25519.PUBLIC_KEY_LENGTH) {
+      if (!ED25519_SPKI_PREFIX.every((b, i) => raw[i] === b)) {
+        throw new Error("Public key is not an ed25519 SubjectPublicKeyInfo.");
+      }
+      raw = raw.subarray(ED25519_SPKI_PREFIX.length);
+    }
+    if (raw.byteLength !== ed25519.PUBLIC_KEY_LENGTH) {
+      throw new Error(`Public key must be ${ed25519.PUBLIC_KEY_LENGTH} bytes.`);
+    }
+    return `whpk_${base64.encode(raw)}`;
   }
 
   /** Verify the given webhook headers against the body bytes (payload).
@@ -293,11 +374,12 @@ export class WebhookAsymmetric {
     const { msgId, msgSignature, timestamp } = parseHeaders(headers);
 
     const bytes = payloadBytes(payload);
-    const timestampNumber = Math.floor(timestamp.getTime() / 1000);
-    const prefix = new TextEncoder().encode(
-      `${this.endpointId}.${msgId}.${timestampNumber}.`
+    const digest = WebhookAsymmetric.signedContentHash(
+      this.endpointId,
+      msgId,
+      timestamp,
+      bytes
     );
-    const digest = sha256.hash(concatBytes(prefix, bytes));
 
     const found = msgSignature.split(" ").some((versionedSignature) => {
       if (!versionedSignature.startsWith("v2a,")) {
@@ -364,5 +446,69 @@ export class WebhookAsymmetric {
       new TextEncoder().encode(`.${this.endpointId}`)
     );
     return challengeResponse(endpointKey, challenge, "v2a");
+  }
+}
+
+/** Sign webhooks with asymmetric (`v2a`, ed25519) signatures, using a private key you hold.
+ *
+ * It's recommended to hold the private key in a KMS or an HSM instead, and sign using
+ * `WebhookAsymmetric.signedContentHash` and `WebhookAsymmetric.formatSignature`.
+ *
+ * A signer isn't tied to an endpoint: one key pair can serve all endpoints.
+ */
+export class WebhookAsymmetricSigner {
+  private static prefix = "whsk_";
+  private readonly secretKey: Uint8Array;
+  private readonly publicKeyBytes: Uint8Array;
+
+  /**
+   * @param secretKey The secret key: `whsk_` followed by the base64 encoded 32 byte ed25519
+   *     seed (private key).
+   */
+  constructor(secretKey: string) {
+    if (typeof secretKey !== "string") {
+      throw new Error("Expected secret key to be of type string");
+    }
+    if (!secretKey.startsWith(WebhookAsymmetricSigner.prefix)) {
+      throw new Error(`Secret key must start with "${WebhookAsymmetricSigner.prefix}".`);
+    }
+    const seed = base64.decode(
+      secretKey.substring(WebhookAsymmetricSigner.prefix.length)
+    );
+    if (seed.length !== ed25519.SEED_LENGTH) {
+      throw new Error(
+        `Secret key must be ${ed25519.SEED_LENGTH} bytes, got ${seed.length}.`
+      );
+    }
+    const keyPair = ed25519.generateKeyPairFromSeed(seed);
+    this.secretKey = keyPair.secretKey;
+    this.publicKeyBytes = keyPair.publicKey;
+  }
+
+  /** Sign `payload` sent to the given endpoint, with the given message id and timestamp.
+   *
+   * A `Buffer` or `Uint8Array` payload is signed byte for byte. A string is signed as its
+   * UTF-8 encoding.
+   *
+   * @returns The signature for the `webhook-signature` header (`v2a,<base64 signature>`)
+   */
+  public sign(
+    endpointId: string,
+    msgId: string,
+    timestamp: Date,
+    payload: string | Uint8Array
+  ): string {
+    const digest = WebhookAsymmetric.signedContentHash(
+      endpointId,
+      msgId,
+      timestamp,
+      payload
+    );
+    return WebhookAsymmetric.formatSignature(ed25519.sign(this.secretKey, digest));
+  }
+
+  /** The public key (`whpk_...`) matching the secret key, to share with consumers. */
+  public publicKey(): string {
+    return WebhookAsymmetric.formatPublicKey(this.publicKeyBytes);
   }
 }

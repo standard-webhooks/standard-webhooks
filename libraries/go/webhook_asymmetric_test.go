@@ -1,9 +1,10 @@
 package standardwebhooks_test
 
 import (
+	"bytes"
 	"crypto/ed25519"
-	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,22 +24,22 @@ const (
 	asymmetricOtherSecretKey = "whsk_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSwMfKQ9r8GKYo="
 )
 
-func asymmetricPrivateKey(t *testing.T, secretKey string) ed25519.PrivateKey {
+func asymmetricSigner(t *testing.T, secretKey string) *standardwebhooks.WebhookAsymmetricSigner {
 	t.Helper()
-	seed, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(secretKey, "whsk_"))
+	signer, err := standardwebhooks.NewWebhookAsymmetricSigner(secretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return ed25519.NewKeyFromSeed(seed)
+	return signer
 }
 
-func asymmetricPublicKeyString(privateKey ed25519.PrivateKey) string {
-	return "whpk_" + base64.StdEncoding.EncodeToString(privateKey.Public().(ed25519.PublicKey))
-}
-
-func asymmetricSign(privateKey ed25519.PrivateKey, endpointID string, msgID string, timestamp time.Time, payload []byte) string {
-	digest := sha256.Sum256([]byte(fmt.Sprintf("%s.%s.%d.%s", endpointID, msgID, timestamp.Unix(), payload)))
-	return "v2a," + base64.StdEncoding.EncodeToString(ed25519.Sign(privateKey, digest[:]))
+func asymmetricSign(t *testing.T, signer *standardwebhooks.WebhookAsymmetricSigner, endpointID string, msgID string, timestamp time.Time, payload []byte) string {
+	t.Helper()
+	signature, err := signer.Sign(endpointID, msgID, timestamp, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signature
 }
 
 func asymmetricHeaders(msgID string, signature string, timestamp time.Time) http.Header {
@@ -55,17 +56,20 @@ func TestWebhookAsymmetricSpecVector(t *testing.T) {
 	payload := []byte(`{"type":"contact.created","timestamp":"2022-11-03T20:26:10.344522Z","data":{"id":"1f81eb52-5198-4599-803e-771906343485"}}`)
 	signature := "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg=="
 
-	privateKey := asymmetricPrivateKey(t, asymmetricSecretKey)
-	if pk := asymmetricPublicKeyString(privateKey); pk != asymmetricPublicKey {
+	signer := asymmetricSigner(t, asymmetricSecretKey)
+	if pk := signer.PublicKey(); pk != asymmetricPublicKey {
 		t.Fatalf("public key %s != expected public key %s", pk, asymmetricPublicKey)
 	}
 
-	digest := sha256.Sum256([]byte(fmt.Sprintf("%s.%s.%d.%s", asymmetricEndpointID, msgID, timestamp.Unix(), payload)))
-	if d := base64.StdEncoding.EncodeToString(digest[:]); d != "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A=" {
+	digest, err := standardwebhooks.AsymmetricSignedContentHash(asymmetricEndpointID, msgID, timestamp, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := base64.StdEncoding.EncodeToString(digest); d != "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A=" {
 		t.Fatalf("unexpected digest %s", d)
 	}
 
-	if s := asymmetricSign(privateKey, asymmetricEndpointID, msgID, timestamp, payload); s != signature {
+	if s := asymmetricSign(t, signer, asymmetricEndpointID, msgID, timestamp, payload); s != signature {
 		t.Fatalf("signature %s != expected signature %s", s, signature)
 	}
 
@@ -84,15 +88,14 @@ func TestWebhookAsymmetricSpecVector(t *testing.T) {
 }
 
 func TestWebhookAsymmetric(t *testing.T) {
-	privateKey := asymmetricPrivateKey(t, asymmetricSecretKey)
-	otherPrivateKey := asymmetricPrivateKey(t, asymmetricOtherSecretKey)
-	otherPublicKey := asymmetricPublicKeyString(otherPrivateKey)
+	privateKey := asymmetricSigner(t, asymmetricSecretKey)
+	otherPublicKey := asymmetricSigner(t, asymmetricOtherSecretKey).PublicKey()
 
 	testCases := []struct {
 		name               string
 		publicKeys         []string
 		endpointID         string
-		signingKey         ed25519.PrivateKey
+		signingKey         *standardwebhooks.WebhookAsymmetricSigner
 		timestamp          time.Time
 		modify             func(header http.Header, payload *[]byte)
 		noEnforceTimestamp bool
@@ -208,7 +211,7 @@ func TestWebhookAsymmetric(t *testing.T) {
 		}
 
 		payload := defaultPayload
-		header := asymmetricHeaders(defaultMsgID, asymmetricSign(tc.signingKey, asymmetricEndpointID, defaultMsgID, timestamp, payload), timestamp)
+		header := asymmetricHeaders(defaultMsgID, asymmetricSign(t, tc.signingKey, asymmetricEndpointID, defaultMsgID, timestamp, payload), timestamp)
 		if tc.modify != nil {
 			tc.modify(header, &payload)
 		}
@@ -261,7 +264,7 @@ func TestWebhookAsymmetricConstructorErrors(t *testing.T) {
 func TestWebhookAsymmetricChallengeResponse(t *testing.T) {
 	challenge := "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
 	expected := "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk="
-	otherPublicKey := asymmetricPublicKeyString(asymmetricPrivateKey(t, asymmetricOtherSecretKey))
+	otherPublicKey := asymmetricSigner(t, asymmetricOtherSecretKey).PublicKey()
 
 	wh, err := standardwebhooks.NewWebhookAsymmetric(asymmetricEndpointID, []string{asymmetricPublicKey, otherPublicKey})
 	if err != nil {
@@ -277,7 +280,7 @@ func TestWebhookAsymmetricChallengeResponse(t *testing.T) {
 func TestWebhookAsymmetricVerifyChallengeResponse(t *testing.T) {
 	challenge := "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM="
 	header := "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk="
-	otherPublicKey := asymmetricPublicKeyString(asymmetricPrivateKey(t, asymmetricOtherSecretKey))
+	otherPublicKey := asymmetricSigner(t, asymmetricOtherSecretKey).PublicKey()
 
 	// The matching key is the second one in the list
 	wh, err := standardwebhooks.NewWebhookAsymmetric(asymmetricEndpointID, []string{otherPublicKey, asymmetricPublicKey})
@@ -303,5 +306,116 @@ func TestWebhookAsymmetricVerifyChallengeResponse(t *testing.T) {
 	}
 	if err := wh.VerifyEndpointVerificationResponse(challenge, header); !errors.Is(err, standardwebhooks.ErrNoMatchingSignature) {
 		t.Fatalf("expected %s for another endpoint id, got %v", standardwebhooks.ErrNoMatchingSignature, err)
+	}
+}
+
+func TestWebhookAsymmetricSignerConstructorErrors(t *testing.T) {
+	testCases := []struct {
+		name      string
+		secretKey string
+	}{
+		{"missing whsk_ prefix", strings.TrimPrefix(asymmetricSecretKey, "whsk_")},
+		{"whpk_ key instead of whsk_", asymmetricPublicKey},
+		{"invalid base64", "whsk_not base64!"},
+		{"key too short", "whsk_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"},
+		{"key too long", "whsk_" + base64.StdEncoding.EncodeToString(make([]byte, 64))},
+		{"empty key", "whsk_"},
+	}
+
+	for _, tc := range testCases {
+		signer, err := standardwebhooks.NewWebhookAsymmetricSigner(tc.secretKey)
+		if signer != nil || !errors.Is(err, standardwebhooks.ErrInvalidSecretKey) {
+			t.Errorf("%s: expected %s, got %v", tc.name, standardwebhooks.ErrInvalidSecretKey, err)
+		}
+	}
+}
+
+func TestWebhookAsymmetricSignInvalidEndpointID(t *testing.T) {
+	signer := asymmetricSigner(t, asymmetricSecretKey)
+	for _, endpointID := range []string{"", "ep_abc.def"} {
+		if _, err := signer.Sign(endpointID, defaultMsgID, time.Now(), defaultPayload); !errors.Is(err, standardwebhooks.ErrInvalidEndpointID) {
+			t.Errorf("Sign(%q): expected %s, got %v", endpointID, standardwebhooks.ErrInvalidEndpointID, err)
+		}
+		if _, err := standardwebhooks.AsymmetricSignedContentHash(endpointID, defaultMsgID, time.Now(), defaultPayload); !errors.Is(err, standardwebhooks.ErrInvalidEndpointID) {
+			t.Errorf("AsymmetricSignedContentHash(%q): expected %s, got %v", endpointID, standardwebhooks.ErrInvalidEndpointID, err)
+		}
+	}
+}
+
+func TestFormatAsymmetricSignature(t *testing.T) {
+	signature := bytes.Repeat([]byte{0xab}, ed25519.SignatureSize)
+	formatted, err := standardwebhooks.FormatAsymmetricSignature(signature)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, ok := strings.CutPrefix(formatted, "v2a,")
+	if !ok {
+		t.Fatalf("expected v2a prefix, got %s", formatted)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || !bytes.Equal(decoded, signature) {
+		t.Fatalf("formatted signature %s doesn't round-trip", formatted)
+	}
+
+	for _, size := range []int{0, 32, 63, 65} {
+		if _, err := standardwebhooks.FormatAsymmetricSignature(make([]byte, size)); !errors.Is(err, standardwebhooks.ErrInvalidSignature) {
+			t.Errorf("size %d: expected %s, got %v", size, standardwebhooks.ErrInvalidSignature, err)
+		}
+	}
+}
+
+func TestFormatAsymmetricPublicKey(t *testing.T) {
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(asymmetricPublicKey, "whpk_"))
+	if err != nil || len(raw) != ed25519.PublicKeySize {
+		t.Fatalf("bad test key: %v", err)
+	}
+	prefix, _ := hex.DecodeString("302a300506032b6570032100")
+	der := append(append([]byte{}, prefix...), raw...)
+
+	for name, key := range map[string][]byte{"raw": raw, "DER": der} {
+		formatted, err := standardwebhooks.FormatAsymmetricPublicKey(key)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if formatted != asymmetricPublicKey {
+			t.Errorf("%s: expected %s, got %s", name, asymmetricPublicKey, formatted)
+		}
+	}
+
+	badDER := append([]byte{}, der...)
+	badDER[0] = 0x31
+	for name, key := range map[string][]byte{"31 bytes": raw[:31], "33 bytes": append(append([]byte{}, raw...), 0), "wrong DER prefix": badDER} {
+		if _, err := standardwebhooks.FormatAsymmetricPublicKey(key); !errors.Is(err, standardwebhooks.ErrInvalidPublicKey) {
+			t.Errorf("%s: expected %s, got %v", name, standardwebhooks.ErrInvalidPublicKey, err)
+		}
+	}
+}
+
+func TestWebhookAsymmetricSignAndVerify(t *testing.T) {
+	signer := asymmetricSigner(t, asymmetricSecretKey)
+	timestamp := time.Now()
+
+	// HSM flow: sign the hash externally, then format
+	digest, err := standardwebhooks.AsymmetricSignedContentHash(asymmetricEndpointID, defaultMsgID, timestamp, defaultPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, _ := base64.StdEncoding.DecodeString(strings.TrimPrefix(asymmetricSecretKey, "whsk_"))
+	hsmSignature, err := standardwebhooks.FormatAsymmetricSignature(ed25519.Sign(ed25519.NewKeyFromSeed(seed), digest))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	signature := asymmetricSign(t, signer, asymmetricEndpointID, defaultMsgID, timestamp, defaultPayload)
+	if signature != hsmSignature {
+		t.Fatalf("signer signature %s != HSM flow signature %s", signature, hsmSignature)
+	}
+
+	wh, err := standardwebhooks.NewWebhookAsymmetric(asymmetricEndpointID, []string{signer.PublicKey()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wh.Verify(defaultPayload, asymmetricHeaders(defaultMsgID, signature, timestamp)); err != nil {
+		t.Fatalf("expected signature to verify, got %s", err)
 	}
 }

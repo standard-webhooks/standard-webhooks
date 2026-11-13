@@ -8,8 +8,9 @@ module StandardWebhooks
   # Verifies webhooks signed with the asymmetric `v2a` signature scheme
   # (ed25519 over the SHA-256 hash of `endpoint_id.msg_id.timestamp.payload`).
   #
-  # This class only verifies: producers are expected to hold the private keys in
-  # a KMS or an HSM.
+  # Producers signing with a KMS or an HSM can use `signed_content_hash` and
+  # `format_signature`. Producers holding the private key themselves can use
+  # WebhookAsymmetricSigner.
   class WebhookAsymmetric
     include TimestampVerification
 
@@ -29,6 +30,71 @@ module StandardWebhooks
         OpenSSL::PKey.read(ED25519_SPKI_PREFIX + raw_key)
       end
 
+      self.class.send(:validate_endpoint_id, endpoint_id)
+
+      @endpoint_id = endpoint_id
+    end
+
+    # Returns the raw 32-byte SHA-256 hash of the `v2a` signed content
+    # (`endpoint_id.msg_id.timestamp.payload`). This is what gets signed with ed25519,
+    # e.g. by an HSM or a KMS. Pass the signature to `format_signature` to get the
+    # `webhook-signature` header value.
+    #
+    # timestamp: the timestamp as an Integer (seconds since the epoch) or a Time.
+    # payload: the exact payload string (signed byte-for-byte).
+    #
+    # Raises EmptyWebhookSecretError for an invalid endpoint ID, and WebhookSigningError
+    # for an invalid timestamp.
+    def self.signed_content_hash(endpoint_id, msg_id, timestamp, payload)
+      validate_endpoint_id(endpoint_id)
+
+      begin
+        timestamp = Integer(timestamp)
+      rescue
+        raise WebhookSigningError, "Invalid timestamp"
+      end
+
+      content = "#{endpoint_id}.#{msg_id}.#{timestamp}.".b + payload.to_s.b
+      OpenSSL::Digest.new("sha256").digest(content)
+    end
+
+    # Formats a raw 64-byte ed25519 signature (of `signed_content_hash`) as a
+    # `webhook-signature` header value: `v2a,<base64 signature>`.
+    #
+    # Raises WebhookSigningError if the signature isn't 64 bytes.
+    def self.format_signature(signature)
+      unless signature.is_a?(String) && signature.bytesize == SIGNATURE_LENGTH
+        raise WebhookSigningError, "Signature must be #{SIGNATURE_LENGTH} bytes"
+      end
+
+      "#{SIGNATURE_IDENTIFIER},#{Base64.strict_encode64(signature)}"
+    end
+
+    # Formats an ed25519 public key (e.g. from an HSM or a KMS) as the `whpk_`
+    # prefixed public key to share with consumers. Accepts either the raw 32-byte
+    # public key, or its 44-byte DER encoded SubjectPublicKeyInfo (e.g. what AWS
+    # KMS `GetPublicKey` returns).
+    #
+    # Raises WebhookSigningError if the public key isn't in either format.
+    def self.format_public_key(public_key)
+      unless public_key.is_a?(String)
+        raise WebhookSigningError, "Public key must be #{PUBLIC_KEY_LENGTH} raw bytes or a DER encoded ed25519 SubjectPublicKeyInfo"
+      end
+
+      key = public_key.b
+      if key.bytesize == ED25519_SPKI_PREFIX.bytesize + PUBLIC_KEY_LENGTH &&
+          key.byteslice(0, ED25519_SPKI_PREFIX.bytesize) == ED25519_SPKI_PREFIX
+        key = key.byteslice(ED25519_SPKI_PREFIX.bytesize, PUBLIC_KEY_LENGTH)
+      end
+
+      unless key.bytesize == PUBLIC_KEY_LENGTH
+        raise WebhookSigningError, "Public key must be #{PUBLIC_KEY_LENGTH} raw bytes or a DER encoded ed25519 SubjectPublicKeyInfo"
+      end
+
+      "#{PUBLIC_KEY_PREFIX}#{Base64.strict_encode64(key)}"
+    end
+
+    def self.validate_endpoint_id(endpoint_id)
       if !endpoint_id.is_a?(String) || endpoint_id.empty?
         raise EmptyWebhookSecretError, "Endpoint ID must not be blank"
       end
@@ -36,9 +102,8 @@ module StandardWebhooks
       if endpoint_id.include?(".")
         raise EmptyWebhookSecretError, "Endpoint ID must not contain a '.'"
       end
-
-      @endpoint_id = endpoint_id
     end
+    private_class_method :validate_endpoint_id
 
     def verify(payload, headers)
       msg_id = headers["webhook-id"]
@@ -51,8 +116,7 @@ module StandardWebhooks
 
       timestamp = verify_timestamp(msg_timestamp)
 
-      content = "#{@endpoint_id}.#{msg_id}.#{timestamp}.".b + payload.to_s.b
-      digest = OpenSSL::Digest.new("sha256").digest(content)
+      digest = self.class.signed_content_hash(@endpoint_id, msg_id, timestamp, payload)
 
       passed_signatures = msg_signature.split(" ")
       matched = passed_signatures.any? do |versioned_signature|

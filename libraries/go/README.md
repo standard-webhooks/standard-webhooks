@@ -24,6 +24,28 @@ err = wh.Verify(webhookPayload, webhookHeaders)
 
 A webhook is accepted if it was signed by any of the public keys in the list, so keys can be rotated by adding the new key to the list. Put the newest key first: it's the one used for responding to endpoint verification.
 
+### Signing (asymmetric)
+
+It's recommended to generate and hold the private key in a KMS or an HSM. Build the hash to sign, sign it with your HSM (pure ed25519), and format the signature for the `webhook-signature` header:
+
+```go
+digest, err := standardwebhooks.AsymmetricSignedContentHash("ep_...", msgID, timestamp, payload)
+rawSignature := yourHSM.SignEd25519(digest) // 64 bytes
+signature, err := standardwebhooks.FormatAsymmetricSignature(rawSignature)
+
+// The public key to share with consumers ("whpk_..."). Accepts the raw 32 byte key or its DER
+// encoded SubjectPublicKeyInfo (e.g. what AWS KMS GetPublicKey returns).
+publicKey, err := standardwebhooks.FormatAsymmetricPublicKey(yourHSM.PublicKey())
+```
+
+If you hold the private key yourself (`whsk_...`), use `WebhookAsymmetricSigner`. One key pair can serve all endpoints, so the endpoint ID is passed to each call:
+
+```go
+signer, err := standardwebhooks.NewWebhookAsymmetricSigner("whsk_...")
+signature, err := signer.Sign("ep_...", msgID, timestamp, payload)
+publicKey := signer.PublicKey() // "whpk_...", share it with consumers
+```
+
 ## Endpoint verification
 
 Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):

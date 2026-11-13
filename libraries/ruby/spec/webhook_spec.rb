@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "securerandom"
 require "standardwebhooks"
 
 DEFAULT_MSG_ID = "msg_p5jXN8AQM9LWM0D4loKWxJek"
@@ -278,6 +279,10 @@ def whpk_from_key(key)
   "whpk_#{Base64.strict_encode64(key.public_to_der[-32..])}"
 end
 
+def random_asymmetric_signer
+  StandardWebhooks::WebhookAsymmetricSigner.new("whsk_#{Base64.strict_encode64(SecureRandom.random_bytes(32))}")
+end
+
 class AsymmetricTestPayload
   attr_accessor :id
   attr_accessor :timestamp
@@ -285,14 +290,13 @@ class AsymmetricTestPayload
   attr_accessor :signature
   attr_accessor :headers
 
-  def initialize(key: ed25519_key_from_secret(ASYMMETRIC_SECRET_KEY), endpoint_id: ASYMMETRIC_ENDPOINT_ID,
+  def initialize(signer: StandardWebhooks::WebhookAsymmetricSigner.new(ASYMMETRIC_SECRET_KEY), endpoint_id: ASYMMETRIC_ENDPOINT_ID,
     timestamp: Time.now.to_i)
     @id = DEFAULT_MSG_ID
     @timestamp = timestamp
     @payload = DEFAULT_PAYLOAD
 
-    digest = OpenSSL::Digest.new("sha256").digest("#{endpoint_id}.#{@id}.#{@timestamp}.#{@payload}")
-    @signature = "v2a,#{Base64.strict_encode64(key.sign(nil, digest))}"
+    @signature = signer.sign(endpoint_id, @id, @timestamp, @payload)
 
     @headers = {
       "webhook-id" => @id,
@@ -391,16 +395,16 @@ describe StandardWebhooks::WebhookAsymmetric do
   end
 
   it "signature made by the second public key is valid" do
-    key = OpenSSL::PKey.generate_key("ED25519")
-    testPayload = AsymmetricTestPayload.new(key: key)
+    signer = random_asymmetric_signer
+    testPayload = AsymmetricTestPayload.new(signer: signer)
 
-    wh = StandardWebhooks::WebhookAsymmetric.new(ASYMMETRIC_ENDPOINT_ID, [ASYMMETRIC_PUBLIC_KEY, whpk_from_key(key)])
+    wh = StandardWebhooks::WebhookAsymmetric.new(ASYMMETRIC_ENDPOINT_ID, [ASYMMETRIC_PUBLIC_KEY, signer.public_key])
     json = wh.verify(testPayload.payload, testPayload.headers)
     expect(json["test"]).to eq(2432232314)
   end
 
   it "signature by an untrusted key raises error" do
-    testPayload = AsymmetricTestPayload.new(key: OpenSSL::PKey.generate_key("ED25519"))
+    testPayload = AsymmetricTestPayload.new(signer: random_asymmetric_signer)
 
     expect {
       wh.verify(testPayload.payload, testPayload.headers)
@@ -464,7 +468,7 @@ describe StandardWebhooks::WebhookAsymmetric do
   end
 
   it "challenge response uses the first public key" do
-    other_key = whpk_from_key(OpenSSL::PKey.generate_key("ED25519"))
+    other_key = random_asymmetric_signer.public_key
 
     wh = StandardWebhooks::WebhookAsymmetric.new(ASYMMETRIC_ENDPOINT_ID, [ASYMMETRIC_PUBLIC_KEY, other_key])
     expect(wh.endpoint_verification_response(ASYMMETRIC_CHALLENGE)).to eq(ASYMMETRIC_CHALLENGE_RESPONSE)
@@ -474,7 +478,7 @@ describe StandardWebhooks::WebhookAsymmetric do
   end
 
   it "verify challenge response accepts any of the public keys" do
-    other_key = whpk_from_key(OpenSSL::PKey.generate_key("ED25519"))
+    other_key = random_asymmetric_signer.public_key
 
     wh = StandardWebhooks::WebhookAsymmetric.new(ASYMMETRIC_ENDPOINT_ID, [other_key, ASYMMETRIC_PUBLIC_KEY])
     expect {
@@ -495,5 +499,147 @@ describe StandardWebhooks::WebhookAsymmetric do
     expect {
       wh.verify_endpoint_verification_response(ASYMMETRIC_CHALLENGE, nil)
     }.to raise_error(StandardWebhooks::WebhookVerificationError, "No matching signature found")
+  end
+end
+
+ASYMMETRIC_MSG_ID = "msg_2KWPBgLlAfxdpx2AI54pPJ85f4W"
+ASYMMETRIC_TIMESTAMP = 1674087231
+ASYMMETRIC_PAYLOAD = '{"type":"contact.created","timestamp":"2022-11-03T20:26:10.344522Z","data":{"id":"1f81eb52-5198-4599-803e-771906343485"}}'
+ASYMMETRIC_CONTENT_HASH = "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A="
+ASYMMETRIC_SIGNATURE = "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg=="
+
+describe "StandardWebhooks::WebhookAsymmetric signing helpers" do
+  describe ".signed_content_hash" do
+    it "matches the spec test vector" do
+      digest = StandardWebhooks::WebhookAsymmetric.signed_content_hash(
+        ASYMMETRIC_ENDPOINT_ID, ASYMMETRIC_MSG_ID, ASYMMETRIC_TIMESTAMP, ASYMMETRIC_PAYLOAD
+      )
+      expect(digest.bytesize).to eq(32)
+      expect(Base64.strict_encode64(digest)).to eq(ASYMMETRIC_CONTENT_HASH)
+    end
+
+    it "accepts a Time timestamp" do
+      digest = StandardWebhooks::WebhookAsymmetric.signed_content_hash(
+        ASYMMETRIC_ENDPOINT_ID, ASYMMETRIC_MSG_ID, Time.at(ASYMMETRIC_TIMESTAMP), ASYMMETRIC_PAYLOAD
+      )
+      expect(Base64.strict_encode64(digest)).to eq(ASYMMETRIC_CONTENT_HASH)
+    end
+
+    it "rejects an invalid endpoint id" do
+      ["", "ep_1.2", nil].each do |endpoint_id|
+        expect {
+          StandardWebhooks::WebhookAsymmetric.signed_content_hash(
+            endpoint_id, ASYMMETRIC_MSG_ID, ASYMMETRIC_TIMESTAMP, ASYMMETRIC_PAYLOAD
+          )
+        }.to raise_error(StandardWebhooks::EmptyWebhookSecretError)
+      end
+    end
+
+    it "rejects an invalid timestamp" do
+      expect {
+        StandardWebhooks::WebhookAsymmetric.signed_content_hash(
+          ASYMMETRIC_ENDPOINT_ID, ASYMMETRIC_MSG_ID, "not a timestamp", ASYMMETRIC_PAYLOAD
+        )
+      }.to raise_error(StandardWebhooks::WebhookSigningError)
+    end
+  end
+
+  describe ".format_signature" do
+    it "round-trips a signature" do
+      raw = Base64.strict_decode64(ASYMMETRIC_SIGNATURE.delete_prefix("v2a,"))
+      expect(StandardWebhooks::WebhookAsymmetric.format_signature(raw)).to eq(ASYMMETRIC_SIGNATURE)
+    end
+
+    it "rejects signatures of the wrong length" do
+      ["a" * 63, "a" * 65, ""].each do |signature|
+        expect {
+          StandardWebhooks::WebhookAsymmetric.format_signature(signature)
+        }.to raise_error(StandardWebhooks::WebhookSigningError)
+      end
+    end
+  end
+
+  describe ".format_public_key" do
+    let(:raw) { Base64.strict_decode64(ASYMMETRIC_PUBLIC_KEY.delete_prefix("whpk_")) }
+    let(:der_prefix) { ["302a300506032b6570032100"].pack("H*") }
+
+    it "formats a raw public key" do
+      expect(StandardWebhooks::WebhookAsymmetric.format_public_key(raw)).to eq(ASYMMETRIC_PUBLIC_KEY)
+    end
+
+    it "formats a DER encoded SubjectPublicKeyInfo" do
+      expect(StandardWebhooks::WebhookAsymmetric.format_public_key(der_prefix + raw)).to eq(ASYMMETRIC_PUBLIC_KEY)
+    end
+
+    it "rejects invalid public keys" do
+      bad_der = ["312a300506032b6570032100"].pack("H*") + raw
+      ["a" * 31, "a" * 33, bad_der].each do |public_key|
+        expect {
+          StandardWebhooks::WebhookAsymmetric.format_public_key(public_key)
+        }.to raise_error(StandardWebhooks::WebhookSigningError)
+      end
+    end
+  end
+end
+
+describe StandardWebhooks::WebhookAsymmetricSigner do
+  let(:signer) { StandardWebhooks::WebhookAsymmetricSigner.new(ASYMMETRIC_SECRET_KEY) }
+
+  describe ".new" do
+    it "rejects secret keys without the whsk_ prefix" do
+      expect {
+        StandardWebhooks::WebhookAsymmetricSigner.new(ASYMMETRIC_SECRET_KEY.delete_prefix("whsk_"))
+      }.to raise_error(StandardWebhooks::EmptyWebhookSecretError)
+    end
+
+    it "rejects a public key" do
+      expect {
+        StandardWebhooks::WebhookAsymmetricSigner.new(ASYMMETRIC_PUBLIC_KEY)
+      }.to raise_error(StandardWebhooks::EmptyWebhookSecretError)
+    end
+
+    it "rejects invalid base64 secret keys" do
+      expect {
+        StandardWebhooks::WebhookAsymmetricSigner.new("whsk_not-base64!")
+      }.to raise_error(StandardWebhooks::EmptyWebhookSecretError)
+    end
+
+    it "rejects secret keys of the wrong length" do
+      ["whsk_#{Base64.strict_encode64("a" * 31)}", "whsk_#{Base64.strict_encode64("a" * 33)}", "whsk_"].each do |key|
+        expect {
+          StandardWebhooks::WebhookAsymmetricSigner.new(key)
+        }.to raise_error(StandardWebhooks::EmptyWebhookSecretError)
+      end
+    end
+  end
+
+  it "public key matches the spec test vector" do
+    expect(signer.public_key).to eq(ASYMMETRIC_PUBLIC_KEY)
+  end
+
+  it "signature matches the spec test vector" do
+    signature = signer.sign(ASYMMETRIC_ENDPOINT_ID, ASYMMETRIC_MSG_ID, ASYMMETRIC_TIMESTAMP, ASYMMETRIC_PAYLOAD)
+    expect(signature).to eq(ASYMMETRIC_SIGNATURE)
+  end
+
+  it "rejects an invalid endpoint id" do
+    ["", "ep_1.2"].each do |endpoint_id|
+      expect {
+        signer.sign(endpoint_id, ASYMMETRIC_MSG_ID, ASYMMETRIC_TIMESTAMP, ASYMMETRIC_PAYLOAD)
+      }.to raise_error(StandardWebhooks::EmptyWebhookSecretError)
+    end
+  end
+
+  it "signatures verify with WebhookAsymmetric" do
+    timestamp = Time.now.to_i
+    signature = signer.sign(ASYMMETRIC_ENDPOINT_ID, DEFAULT_MSG_ID, timestamp, DEFAULT_PAYLOAD)
+
+    wh = StandardWebhooks::WebhookAsymmetric.new(ASYMMETRIC_ENDPOINT_ID, [signer.public_key])
+    json = wh.verify(DEFAULT_PAYLOAD, {
+      "webhook-id" => DEFAULT_MSG_ID,
+      "webhook-timestamp" => timestamp.to_s,
+      "webhook-signature" => signature
+    })
+    expect(json["test"]).to eq(2432232314)
   end
 end

@@ -2,16 +2,25 @@
 // SPDX-License-Identifier: MIT
 
 use base64::Engine;
-use ed25519_dalek::{Signature, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
+use ed25519_dalek::{
+    Signature, Signer, SigningKey, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
+    SIGNATURE_LENGTH,
+};
 use http::HeaderMap;
 use time::OffsetDateTime;
 
 use crate::{parse_verify_headers, secure_compare, sign_challenge, WebhookError};
 
 const PUBLIC_KEY_PREFIX: &str = "whpk_";
+/// The DER prefix of an ed25519 `SubjectPublicKeyInfo`, followed by the 32-byte public key.
+const ED25519_SPKI_PREFIX: [u8; 12] = [
+    0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+];
+const SECRET_KEY_PREFIX: &str = "whsk_";
 const SIGNATURE_VERSION: &str = "v2a";
 
-/// Errors returned when creating a [`WebhookAsymmetric`]
+/// Errors returned when creating a [`WebhookAsymmetric`] or a [`WebhookAsymmetricSigner`], or when
+/// building or formatting a signature
 ///
 /// Verification errors are returned as [`WebhookError`], same as with [`crate::Webhook`].
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
@@ -24,12 +33,26 @@ pub enum WebhookAsymmetricError {
 
     #[error("endpoint id may not be empty or contain '.'")]
     InvalidEndpointId,
+
+    #[error("invalid secret key")]
+    InvalidSecretKey,
+
+    #[error("signature must be {SIGNATURE_LENGTH} bytes")]
+    InvalidSignature,
+}
+
+fn validate_endpoint_id(endpoint_id: &str) -> Result<(), WebhookAsymmetricError> {
+    if endpoint_id.is_empty() || endpoint_id.contains('.') {
+        return Err(WebhookAsymmetricError::InvalidEndpointId);
+    }
+    Ok(())
 }
 
 /// Verifies webhooks signed with asymmetric (`v2a`) signatures
 ///
-/// It only verifies signatures: producers are expected to sign webhooks using a private key held
-/// in a KMS or an HSM.
+/// It only verifies signatures. Producers sign webhooks either with a [`WebhookAsymmetricSigner`],
+/// or with a private key held in a KMS or an HSM, using [`WebhookAsymmetric::signed_content_hash`]
+/// and [`WebhookAsymmetric::format_signature`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WebhookAsymmetric {
     public_keys: Box<[VerifyingKey]>,
@@ -54,9 +77,7 @@ impl WebhookAsymmetric {
         if public_keys.is_empty() {
             return Err(WebhookAsymmetricError::NoPublicKeys);
         }
-        if endpoint_id.is_empty() || endpoint_id.contains('.') {
-            return Err(WebhookAsymmetricError::InvalidEndpointId);
-        }
+        validate_endpoint_id(endpoint_id)?;
 
         let public_keys = public_keys
             .iter()
@@ -82,6 +103,58 @@ impl WebhookAsymmetric {
         VerifyingKey::from_bytes(&key).map_err(|_| WebhookAsymmetricError::InvalidPublicKey)
     }
 
+    /// Calculate the hash of the signed content, to be signed by the producer
+    ///
+    /// Returns the raw 32 bytes of `SHA-256("{endpoint_id}.{msg_id}.{timestamp}.{payload}")`. This
+    /// is what producers that hold their private key in an HSM or a KMS sign (using pure ed25519),
+    /// before passing the signature to [`Self::format_signature`].
+    ///
+    /// `timestamp` is in seconds since the unix epoch.
+    pub fn signed_content_hash(
+        endpoint_id: &str,
+        msg_id: &str,
+        timestamp: i64,
+        payload: &[u8],
+    ) -> Result<[u8; 32], WebhookAsymmetricError> {
+        validate_endpoint_id(endpoint_id)?;
+
+        let mut hasher = hmac_sha256::Hash::new();
+        hasher.update(format!("{endpoint_id}.{msg_id}.{timestamp}."));
+        hasher.update(payload);
+        Ok(hasher.finalize())
+    }
+
+    /// Format a raw ed25519 signature as a `webhook-signature` header value (`v2a,<base64>`)
+    ///
+    /// The signature must be 64 bytes long.
+    pub fn format_signature(signature: &[u8]) -> Result<String, WebhookAsymmetricError> {
+        if signature.len() != SIGNATURE_LENGTH {
+            return Err(WebhookAsymmetricError::InvalidSignature);
+        }
+        let encoded = base64::engine::general_purpose::STANDARD.encode(signature);
+
+        Ok(format!("{SIGNATURE_VERSION},{encoded}"))
+    }
+
+    /// Format an ed25519 public key as a `whpk_` public key, to be shared with consumers
+    ///
+    /// Accepts either the raw 32-byte ed25519 public key, or the DER encoded
+    /// `SubjectPublicKeyInfo` of an ed25519 public key (as returned by e.g. AWS KMS
+    /// `GetPublicKey`). This is useful for producers that hold their private key in an HSM or a
+    /// KMS.
+    pub fn format_public_key(public_key: &[u8]) -> Result<String, WebhookAsymmetricError> {
+        let raw = match public_key.len() {
+            PUBLIC_KEY_LENGTH => public_key,
+            44 => public_key
+                .strip_prefix(&ED25519_SPKI_PREFIX[..])
+                .ok_or(WebhookAsymmetricError::InvalidPublicKey)?,
+            _ => return Err(WebhookAsymmetricError::InvalidPublicKey),
+        };
+        let encoded = base64::engine::general_purpose::STANDARD.encode(raw);
+
+        Ok(format!("{PUBLIC_KEY_PREFIX}{encoded}"))
+    }
+
     /// Verify the webhook signature against payload and headers
     pub fn verify(&self, payload: &[u8], headers: &HeaderMap) -> Result<(), WebhookError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
@@ -97,10 +170,9 @@ impl WebhookAsymmetric {
     ) -> Result<(), WebhookError> {
         let (msg_id, msg_signature, msg_ts) = parse_verify_headers(headers, now)?;
 
-        let mut hasher = hmac_sha256::Hash::new();
-        hasher.update(format!("{}.{msg_id}.{msg_ts}.", self.endpoint_id));
-        hasher.update(payload);
-        let digest = hasher.finalize();
+        // The endpoint ID was validated in the constructor
+        let digest = Self::signed_content_hash(&self.endpoint_id, msg_id, msg_ts, payload)
+            .map_err(|_| WebhookError::InvalidSignature)?;
 
         msg_signature
             .split(' ')
@@ -163,13 +235,69 @@ impl WebhookAsymmetric {
     }
 }
 
+/// Signs webhooks with asymmetric (`v2a`) signatures
+///
+/// For producers that hold the private key themselves. It's recommended to hold the private key in
+/// a KMS or an HSM instead, and sign using [`WebhookAsymmetric::signed_content_hash`] and
+/// [`WebhookAsymmetric::format_signature`].
+///
+/// The signer isn't tied to an endpoint: a single key pair can serve all endpoints, as the
+/// endpoint ID is part of the signed content.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WebhookAsymmetricSigner {
+    // `SigningKey`'s `Debug` implementation doesn't print the secret key
+    key: SigningKey,
+}
+
+impl WebhookAsymmetricSigner {
+    /// Create a signer for asymmetric (`v2a`) signatures
+    ///
+    /// `secret_key` is `whsk_` followed by the base64 encoded 32 byte ed25519 private key (seed).
+    pub fn new(secret_key: &str) -> Result<Self, WebhookAsymmetricError> {
+        let key = secret_key
+            .strip_prefix(SECRET_KEY_PREFIX)
+            .ok_or(WebhookAsymmetricError::InvalidSecretKey)?;
+        let key: [u8; SECRET_KEY_LENGTH] = base64::engine::general_purpose::STANDARD
+            .decode(key)
+            .map_err(|_| WebhookAsymmetricError::InvalidSecretKey)?
+            .try_into()
+            .map_err(|_| WebhookAsymmetricError::InvalidSecretKey)?;
+
+        Ok(WebhookAsymmetricSigner {
+            key: SigningKey::from_bytes(&key),
+        })
+    }
+
+    /// Sign a webhook, returning the value for the `webhook-signature` header (`v2a,<base64>`)
+    ///
+    /// `timestamp` is in seconds since the unix epoch.
+    pub fn sign(
+        &self,
+        endpoint_id: &str,
+        msg_id: &str,
+        timestamp: i64,
+        payload: &[u8],
+    ) -> Result<String, WebhookAsymmetricError> {
+        let digest =
+            WebhookAsymmetric::signed_content_hash(endpoint_id, msg_id, timestamp, payload)?;
+        WebhookAsymmetric::format_signature(&self.key.sign(&digest).to_bytes())
+    }
+
+    /// The public key, serialized as `whpk_` followed by the base64 encoded ed25519 public key
+    ///
+    /// This is the key to share with consumers.
+    pub fn public_key(&self) -> String {
+        WebhookAsymmetric::format_public_key(self.key.verifying_key().as_bytes())
+            .expect("an ed25519 public key is always 32 bytes")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         HEADER_WEBHOOK_ID, HEADER_WEBHOOK_SIGNATURE, HEADER_WEBHOOK_TIMESTAMP, TOLERANCE_IN_SECONDS,
     };
-    use ed25519_dalek::{Signer, SigningKey};
 
     // Test-only keys from the spec. Never use them for anything else.
     const SECRET_KEY: &str = "whsk_4uKPjji/dhB8w6GW3YYDnIMYvXcdHrvH6lidTr4Z+EY=";
@@ -184,34 +312,20 @@ mod tests {
     const CHALLENGE: &str = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
     const CHALLENGE_RESPONSE: &str = "v2a,t0RDFhzk7OtVzgvMsjuXnodSWuby2BVX+zPqw2/ksUk=";
 
-    fn signing_key(secret_key: &str) -> SigningKey {
-        let seed: [u8; 32] = base64::engine::general_purpose::STANDARD
-            .decode(secret_key.strip_prefix("whsk_").unwrap())
-            .unwrap()
-            .try_into()
-            .unwrap();
-        SigningKey::from_bytes(&seed)
-    }
-
-    fn public_key(signing_key: &SigningKey) -> String {
-        let encoded = base64::engine::general_purpose::STANDARD
-            .encode(signing_key.verifying_key().as_bytes());
-        format!("whpk_{encoded}")
+    fn signing_key(secret_key: &str) -> WebhookAsymmetricSigner {
+        WebhookAsymmetricSigner::new(secret_key).unwrap()
     }
 
     fn sign(
-        signing_key: &SigningKey,
+        signer: &WebhookAsymmetricSigner,
         endpoint_id: &str,
         msg_id: &str,
         timestamp: i64,
         payload: &[u8],
     ) -> String {
-        let mut content = format!("{endpoint_id}.{msg_id}.{timestamp}.").into_bytes();
-        content.extend_from_slice(payload);
-        let digest = hmac_sha256::Hash::hash(&content);
-        let encoded =
-            base64::engine::general_purpose::STANDARD.encode(signing_key.sign(&digest).to_bytes());
-        format!("v2a,{encoded}")
+        signer
+            .sign(endpoint_id, msg_id, timestamp, payload)
+            .unwrap()
     }
 
     fn headers(msg_id: &str, signature: &str, timestamp: i64) -> HeaderMap {
@@ -237,12 +351,13 @@ mod tests {
         let signature = "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg==";
 
         let key = signing_key(SECRET_KEY);
-        assert_eq!(public_key(&key), PUBLIC_KEY);
+        assert_eq!(key.public_key(), PUBLIC_KEY);
 
-        let mut content = format!("{ENDPOINT_ID}.{msg_id}.{timestamp}.").into_bytes();
-        content.extend_from_slice(payload);
+        let digest =
+            WebhookAsymmetric::signed_content_hash(ENDPOINT_ID, msg_id, timestamp, payload)
+                .unwrap();
         assert_eq!(
-            base64::engine::general_purpose::STANDARD.encode(hmac_sha256::Hash::hash(&content)),
+            base64::engine::general_purpose::STANDARD.encode(digest),
             "YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A="
         );
         assert_eq!(
@@ -310,7 +425,7 @@ mod tests {
     #[test]
     fn test_verify_key_rotation() {
         let key = signing_key(SECRET_KEY);
-        let other_public_key = public_key(&signing_key(OTHER_SECRET_KEY));
+        let other_public_key = signing_key(OTHER_SECRET_KEY).public_key();
 
         let ts = now();
         let signature = sign(&key, ENDPOINT_ID, MSG_ID, ts, PAYLOAD);
@@ -460,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_challenge_response() {
-        let other_public_key = public_key(&signing_key(OTHER_SECRET_KEY));
+        let other_public_key = signing_key(OTHER_SECRET_KEY).public_key();
         let wh =
             WebhookAsymmetric::new(ENDPOINT_ID, &[PUBLIC_KEY, other_public_key.as_str()]).unwrap();
         assert_eq!(
@@ -471,7 +586,7 @@ mod tests {
 
     #[test]
     fn test_verify_challenge_response() {
-        let other_public_key = public_key(&signing_key(OTHER_SECRET_KEY));
+        let other_public_key = signing_key(OTHER_SECRET_KEY).public_key();
         // The matching key is the second one in the list
         let wh =
             WebhookAsymmetric::new(ENDPOINT_ID, &[other_public_key.as_str(), PUBLIC_KEY]).unwrap();
@@ -495,5 +610,99 @@ mod tests {
             Err(WebhookError::InvalidSignature),
             wh.verify_endpoint_verification_response(CHALLENGE, CHALLENGE_RESPONSE)
         );
+    }
+
+    #[test]
+    fn test_signer_round_trip() {
+        let signer = WebhookAsymmetricSigner::new(SECRET_KEY).unwrap();
+        let wh = WebhookAsymmetric::new(ENDPOINT_ID, &[signer.public_key()]).unwrap();
+
+        let ts = now();
+        let signature = signer.sign(ENDPOINT_ID, MSG_ID, ts, PAYLOAD).unwrap();
+        wh.verify(PAYLOAD, &headers(MSG_ID, &signature, ts))
+            .unwrap();
+    }
+
+    #[test]
+    fn test_signer_constructor_errors() {
+        let unprefixed = SECRET_KEY.strip_prefix("whsk_").unwrap();
+        let whpk = format!("whpk_{unprefixed}");
+        let whsec = format!("whsec_{unprefixed}");
+        for key in [
+            unprefixed,
+            whpk.as_str(),
+            whsec.as_str(),
+            PUBLIC_KEY,
+            "whsk_not base64!",
+            "whsk_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw",
+            "whsk_",
+        ] {
+            assert_eq!(
+                WebhookAsymmetricSigner::new(key),
+                Err(WebhookAsymmetricError::InvalidSecretKey),
+                "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_invalid_endpoint_id() {
+        let signer = WebhookAsymmetricSigner::new(SECRET_KEY).unwrap();
+        for endpoint_id in ["", "ep_abc.def"] {
+            assert_eq!(
+                WebhookAsymmetric::signed_content_hash(endpoint_id, MSG_ID, now(), PAYLOAD),
+                Err(WebhookAsymmetricError::InvalidEndpointId)
+            );
+            assert_eq!(
+                signer.sign(endpoint_id, MSG_ID, now(), PAYLOAD),
+                Err(WebhookAsymmetricError::InvalidEndpointId)
+            );
+        }
+    }
+
+    #[test]
+    fn test_format_signature() {
+        let signature = "v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg==";
+        let raw = base64::engine::general_purpose::STANDARD
+            .decode(signature.strip_prefix("v2a,").unwrap())
+            .unwrap();
+        assert_eq!(
+            WebhookAsymmetric::format_signature(&raw).unwrap(),
+            signature
+        );
+
+        for raw in [&raw[..63], &[raw.as_slice(), &[0]].concat(), &[]] {
+            assert_eq!(
+                WebhookAsymmetric::format_signature(raw),
+                Err(WebhookAsymmetricError::InvalidSignature)
+            );
+        }
+    }
+
+    #[test]
+    fn test_format_public_key() {
+        let raw = base64::engine::general_purpose::STANDARD
+            .decode(PUBLIC_KEY.strip_prefix("whpk_").unwrap())
+            .unwrap();
+        assert_eq!(raw.len(), 32);
+        assert_eq!(
+            WebhookAsymmetric::format_public_key(&raw).unwrap(),
+            PUBLIC_KEY
+        );
+
+        let der = [&ED25519_SPKI_PREFIX[..], &raw].concat();
+        assert_eq!(
+            WebhookAsymmetric::format_public_key(&der).unwrap(),
+            PUBLIC_KEY
+        );
+
+        let mut wrong_prefix = der.clone();
+        wrong_prefix[0] = 0x31;
+        for key in [&raw[..31], &[raw.as_slice(), &[0]].concat(), &wrong_prefix] {
+            assert_eq!(
+                WebhookAsymmetric::format_public_key(key),
+                Err(WebhookAsymmetricError::InvalidPublicKey)
+            );
+        }
     }
 }

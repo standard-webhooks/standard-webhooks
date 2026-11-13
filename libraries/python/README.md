@@ -31,6 +31,35 @@ wh.verify(webhook_payload, webhook_headers)
 Webhooks signed with any of the public keys are accepted, so keys can be rotated by adding the
 new key to the list. Put the newest key first: it's the one used for endpoint verification.
 
+### Signing (asymmetric)
+
+It's recommended to generate and hold the private key in a KMS or an HSM. Build the hash to sign,
+sign it with your HSM (pure ed25519), and format the signature for the `webhook-signature` header
+(these two don't require the `asymmetric` extra):
+
+```python
+from standardwebhooks.webhooks import WebhookAsymmetric
+
+digest = WebhookAsymmetric.signed_content_hash(endpoint_id, msg_id, timestamp, payload)
+raw_signature = your_hsm.sign_ed25519(digest)  # 64 bytes
+signature = WebhookAsymmetric.format_signature(raw_signature)
+
+# The public key to share with consumers ("whpk_..."). Accepts the raw 32 byte key or its DER
+# encoded SubjectPublicKeyInfo (e.g. what AWS KMS GetPublicKey returns).
+public_key = WebhookAsymmetric.format_public_key(your_hsm.get_public_key())
+```
+
+If you hold the private key yourself (`whsk_...`), use `WebhookAsymmetricSigner`. One key pair
+can serve all endpoints, so the endpoint ID is passed to each call:
+
+```python
+from standardwebhooks.webhooks import WebhookAsymmetricSigner
+
+signer = WebhookAsymmetricSigner("whsk_...")
+signature = signer.sign(endpoint_id, msg_id, timestamp, payload)
+public_key = signer.public_key()  # "whpk_...", share it with consumers
+```
+
 Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
 
 ```python

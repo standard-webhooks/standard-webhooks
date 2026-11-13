@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -36,12 +37,7 @@ abstract class WebhookAsymmetricBase {
 		if (publicKeys == null || publicKeys.isEmpty()) {
 			throw new EmptyWebhookSecretException("Webhook public keys should not be empty");
 		}
-		if (endpointId == null || endpointId.isEmpty()) {
-			throw new IllegalArgumentException("Endpoint ID should not be empty");
-		}
-		if (endpointId.contains(".")) {
-			throw new IllegalArgumentException("Endpoint ID must not contain '.'");
-		}
+		validateEndpointId(endpointId);
 
 		List<byte[]> keys = new ArrayList<>(publicKeys.size());
 		List<Ed25519PublicKeyParameters> parameters = new ArrayList<>(publicKeys.size());
@@ -61,6 +57,81 @@ abstract class WebhookAsymmetricBase {
 		this.publicKeys = Collections.unmodifiableList(keys);
 		this.publicKeyParameters = Collections.unmodifiableList(parameters);
 		this.endpointId = endpointId;
+	}
+
+	private static void validateEndpointId(final String endpointId) {
+		if (endpointId == null || endpointId.isEmpty()) {
+			throw new IllegalArgumentException("Endpoint ID should not be empty");
+		}
+		if (endpointId.contains(".")) {
+			throw new IllegalArgumentException("Endpoint ID must not contain '.'");
+		}
+	}
+
+	/**
+	 * Calculate the SHA-256 hash of the signed content ({@code endpoint_id.msg_id.timestamp.payload}).
+	 * Producers that hold the private key in an HSM or a KMS sign this hash with pure ed25519, and pass
+	 * the signature to {@link #formatSignature(byte[])}.
+	 *
+	 * @param endpointId The ID of the endpoint the webhook is sent to
+	 * @param msgId The webhook's message ID
+	 * @param timestamp The webhook's timestamp, in seconds since the epoch
+	 * @param payload The webhook's payload
+	 * @return The raw 32 bytes of the hash
+	 * @throws IllegalArgumentException if the endpoint ID is invalid
+	 * @throws WebhookSigningException if the hash can't be calculated
+	 */
+	public static byte[] signedContentHash(final String endpointId, final String msgId, final long timestamp,
+			final String payload) throws WebhookSigningException {
+		validateEndpointId(endpointId);
+
+		try {
+			String content = String.format("%s.%s.%s.%s", endpointId, msgId, timestamp, payload);
+			return MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8));
+		} catch (NoSuchAlgorithmException e) {
+			throw new WebhookSigningException("Failed to calculate the signed content hash");
+		}
+	}
+
+	/**
+	 * Format a raw ed25519 signature as a webhook-signature header value ({@code v2a,<base64>}).
+	 *
+	 * @param signature The 64 byte ed25519 signature
+	 * @return The value for the webhook-signature header
+	 * @throws IllegalArgumentException if the signature isn't 64 bytes
+	 */
+	public static String formatSignature(final byte[] signature) {
+		if (signature == null || signature.length != SIGNATURE_LENGTH) {
+			throw new IllegalArgumentException(String.format("Signature must be %d bytes", SIGNATURE_LENGTH));
+		}
+		return SIGNATURE_PREFIX + Base64.getEncoder().encodeToString(signature);
+	}
+
+	// The DER prefix of an ed25519 SubjectPublicKeyInfo, followed by the 32 byte public key.
+	private static final byte[] ED25519_SPKI_PREFIX = {
+		0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00 };
+
+	/**
+	 * Format an ed25519 public key as a {@code whpk_} public key, to share with consumers. Useful for
+	 * producers that hold the private key in an HSM or a KMS.
+	 *
+	 * @param publicKey The raw 32 byte ed25519 public key, or the DER encoded SubjectPublicKeyInfo of
+	 *            an ed25519 public key (as returned by e.g. AWS KMS {@code GetPublicKey})
+	 * @return The {@code whpk_} prefixed public key
+	 * @throws IllegalArgumentException if the public key isn't a raw or DER encoded ed25519 public key
+	 */
+	public static String formatPublicKey(final byte[] publicKey) {
+		final int keySize = Ed25519PublicKeyParameters.KEY_SIZE;
+		if (publicKey != null && publicKey.length == keySize) {
+			return PUBLIC_KEY_PREFIX + Base64.getEncoder().encodeToString(publicKey);
+		}
+		if (publicKey != null && publicKey.length == ED25519_SPKI_PREFIX.length + keySize
+				&& Arrays.equals(Arrays.copyOf(publicKey, ED25519_SPKI_PREFIX.length), ED25519_SPKI_PREFIX)) {
+			return PUBLIC_KEY_PREFIX + Base64.getEncoder()
+				.encodeToString(Arrays.copyOfRange(publicKey, ED25519_SPKI_PREFIX.length, publicKey.length));
+		}
+		throw new IllegalArgumentException(String.format(
+			"Public key must be a %d byte ed25519 public key or its DER encoded SubjectPublicKeyInfo", keySize));
 	}
 
 	/**
@@ -91,9 +162,8 @@ abstract class WebhookAsymmetricBase {
 			throws WebhookVerificationException {
 		byte[] digest;
 		try {
-			String content = String.format("%s.%s.%s.%s", this.endpointId, msgId, timestamp, payload);
-			digest = MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8));
-		} catch (NoSuchAlgorithmException e) {
+			digest = signedContentHash(this.endpointId, msgId, timestamp, payload);
+		} catch (WebhookSigningException e) {
 			throw new WebhookVerificationException("Failed to generate expected signature");
 		}
 

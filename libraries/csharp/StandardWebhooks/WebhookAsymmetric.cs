@@ -14,7 +14,7 @@ namespace StandardWebhooks
     /// </summary>
     public sealed class WebhookAsymmetric
     {
-        private const string PUBLIC_KEY_PREFIX = "whpk_";
+        internal const string PUBLIC_KEY_PREFIX = "whpk_";
         private const string SIGNATURE_PREFIX = "v2a,";
         private const int SIGNATURE_LENGTH = 64;
 
@@ -40,6 +40,15 @@ namespace StandardWebhooks
             {
                 throw new EmptyWebhookSecretException("Missing webhook public keys");
             }
+            ValidateEndpointId(endpointId);
+
+            this.publicKeys = keys.Select(ParsePublicKey).ToArray();
+            this.publicKeyParameters = this.publicKeys.Select(key => new Ed25519PublicKeyParameters(key, 0)).ToArray();
+            this.endpointId = endpointId;
+        }
+
+        private static void ValidateEndpointId(string endpointId)
+        {
             if (String.IsNullOrEmpty(endpointId))
             {
                 throw new ArgumentException("Missing endpoint ID", nameof(endpointId));
@@ -48,10 +57,71 @@ namespace StandardWebhooks
             {
                 throw new ArgumentException("Endpoint ID must not contain '.'", nameof(endpointId));
             }
+        }
 
-            this.publicKeys = keys.Select(ParsePublicKey).ToArray();
-            this.publicKeyParameters = this.publicKeys.Select(key => new Ed25519PublicKeyParameters(key, 0)).ToArray();
-            this.endpointId = endpointId;
+        /// <summary>
+        /// Calculates the SHA-256 hash of the signed content (<c>endpoint_id.msg_id.timestamp.payload</c>).
+        /// Producers that hold the private key in an HSM or a KMS sign this hash with pure ed25519, and pass the
+        /// signature to <see cref="FormatSignature"/>.
+        /// </summary>
+        /// <param name="endpointId">The ID of the endpoint the webhook is sent to.</param>
+        /// <param name="msgId">The webhook's message ID.</param>
+        /// <param name="timestamp">The webhook's timestamp.</param>
+        /// <param name="payload">The webhook's payload.</param>
+        /// <returns>The raw 32 bytes of the hash.</returns>
+        /// <exception cref="ArgumentException">The endpoint ID is invalid.</exception>
+        public static byte[] SignedContentHash(string endpointId, string msgId, DateTimeOffset timestamp, string payload)
+        {
+            ValidateEndpointId(endpointId);
+
+            var content = $"{endpointId}.{msgId}.{timestamp.ToUnixTimeSeconds().ToString()}.{payload}";
+            using (var sha256 = SHA256.Create())
+            {
+                return sha256.ComputeHash(Webhook.SafeUTF8Encoding.GetBytes(content));
+            }
+        }
+
+        /// <summary>
+        /// Formats a raw ed25519 signature as a webhook-signature header value (<c>v2a,&lt;base64&gt;</c>).
+        /// </summary>
+        /// <param name="signature">The 64 byte ed25519 signature.</param>
+        /// <exception cref="ArgumentException">The signature isn't 64 bytes.</exception>
+        public static string FormatSignature(byte[] signature)
+        {
+            if (signature == null || signature.Length != SIGNATURE_LENGTH)
+            {
+                throw new ArgumentException($"Signature must be {SIGNATURE_LENGTH} bytes", nameof(signature));
+            }
+            return SIGNATURE_PREFIX + Convert.ToBase64String(signature);
+        }
+
+        // The DER prefix of an ed25519 SubjectPublicKeyInfo, followed by the 32 byte public key.
+        private static readonly byte[] ED25519_SPKI_PREFIX = { 0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00 };
+
+        /// <summary>
+        /// Formats an ed25519 public key as a <c>whpk_</c> public key, to share with consumers. Useful for producers
+        /// that hold the private key in an HSM or a KMS.
+        /// </summary>
+        /// <param name="publicKey">
+        /// The raw 32 byte ed25519 public key, or the DER encoded SubjectPublicKeyInfo of an ed25519 public key (as
+        /// returned by e.g. AWS KMS <c>GetPublicKey</c>).
+        /// </param>
+        /// <exception cref="ArgumentException">The public key isn't a raw or DER encoded ed25519 public key.</exception>
+        public static string FormatPublicKey(byte[] publicKey)
+        {
+            var keySize = Ed25519PublicKeyParameters.KeySize;
+            if (publicKey != null && publicKey.Length == keySize)
+            {
+                return PUBLIC_KEY_PREFIX + Convert.ToBase64String(publicKey);
+            }
+            if (publicKey != null && publicKey.Length == ED25519_SPKI_PREFIX.Length + keySize
+                && publicKey.Take(ED25519_SPKI_PREFIX.Length).SequenceEqual(ED25519_SPKI_PREFIX))
+            {
+                return PUBLIC_KEY_PREFIX + Convert.ToBase64String(publicKey, ED25519_SPKI_PREFIX.Length, keySize);
+            }
+            throw new ArgumentException(
+                $"Public key must be a {keySize} byte ed25519 public key or its DER encoded SubjectPublicKeyInfo",
+                nameof(publicKey));
         }
 
         private static byte[] ParsePublicKey(string publicKey)
@@ -98,12 +168,7 @@ namespace StandardWebhooks
         /// </summary>
         internal void VerifySignature(string msgId, DateTimeOffset timestamp, string payload, string msgSignature)
         {
-            var content = $"{this.endpointId}.{msgId}.{timestamp.ToUnixTimeSeconds().ToString()}.{payload}";
-            byte[] digest;
-            using (var sha256 = SHA256.Create())
-            {
-                digest = sha256.ComputeHash(Webhook.SafeUTF8Encoding.GetBytes(content));
-            }
+            var digest = SignedContentHash(this.endpointId, msgId, timestamp, payload);
 
             foreach (string versionedSignature in msgSignature.Split(' '))
             {

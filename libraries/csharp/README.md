@@ -44,6 +44,27 @@ wh.Verify(webhookPayload, webhookHeaders);
 
 Keys can be rotated by adding the new key to the start of the list (newest first): a signature made by any of the keys is accepted, and the first key is used for endpoint verification responses. `WebhookAsymmetric` supports the same endpoint verification methods as `Webhook` above.
 
+### Signing (asymmetric)
+
+It's recommended to hold the private key in a KMS or an HSM. The library builds the hash to sign, you sign it with your HSM (pure ed25519), and the library formats the header value:
+
+```cs
+byte[] digest = WebhookAsymmetric.SignedContentHash("ep_...", msgId, timestamp, payload);
+byte[] signature = YourHsm.SignEd25519(digest); // your HSM / KMS sign call
+string header = WebhookAsymmetric.FormatSignature(signature); // "v2a,..."
+
+// The public key to give consumers. Accepts the raw 32 byte key or its DER encoded SubjectPublicKeyInfo.
+string publicKey = WebhookAsymmetric.FormatPublicKey(YourHsm.GetEd25519PublicKey()); // "whpk_..."
+```
+
+Producers that hold the private key themselves can use `WebhookAsymmetricSigner`. One key pair serves all endpoints, so the endpoint ID is passed when signing:
+
+```cs
+var signer = new WebhookAsymmetricSigner("whsk_...");
+string header = signer.Sign("ep_...", msgId, timestamp, payload); // "v2a,..."
+string publicKey = signer.PublicKey(); // "whpk_...", share it with consumers
+```
+
 # Development
 
 ## Requirements

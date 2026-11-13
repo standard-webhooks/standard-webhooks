@@ -3,10 +3,12 @@ defmodule StandardWebhooks.Asymmetric do
   Verify Standard Webhooks signed with the asymmetric `v2a` signature scheme
   (ed25519 over the SHA-256 hash of `endpoint_id.msg_id.timestamp.payload`).
 
-  This module only verifies: producers are expected to hold the private keys in a KMS or an HSM.
-
       webhook = StandardWebhooks.Asymmetric.new(endpoint_id, [public_key])
       StandardWebhooks.Asymmetric.verify(webhook_payload, plug_conn, webhook)
+
+  Producers signing with a KMS or an HSM can use `signed_content_hash/4` and
+  `format_signature/1`. Producers holding the private key themselves can use
+  `StandardWebhooks.AsymmetricSigner`.
   """
 
   @public_key_prefix "whpk_"
@@ -37,23 +39,29 @@ defmodule StandardWebhooks.Asymmetric do
     raise ArgumentError, message: "Public keys must be a list"
   end
 
-  def new(endpoint_id, _public_keys) when not is_binary(endpoint_id) do
-    raise ArgumentError, message: "Endpoint ID must be a string"
-  end
-
-  def new("", _public_keys) do
-    raise ArgumentError, message: "Endpoint ID must not be empty"
-  end
-
   def new(endpoint_id, public_keys) do
-    if String.contains?(endpoint_id, ".") do
-      raise ArgumentError, message: "Endpoint ID must not contain a \".\""
-    end
+    validate_endpoint_id(endpoint_id)
 
     %__MODULE__{
       public_keys: Enum.map(public_keys, &decode_public_key/1),
       endpoint_id: endpoint_id
     }
+  end
+
+  defp validate_endpoint_id(endpoint_id) when not is_binary(endpoint_id) do
+    raise ArgumentError, message: "Endpoint ID must be a string"
+  end
+
+  defp validate_endpoint_id("") do
+    raise ArgumentError, message: "Endpoint ID must not be empty"
+  end
+
+  defp validate_endpoint_id(endpoint_id) do
+    if String.contains?(endpoint_id, ".") do
+      raise ArgumentError, message: "Endpoint ID must not contain a \".\""
+    end
+
+    :ok
   end
 
   defp decode_public_key(@public_key_prefix <> public_key) do
@@ -89,12 +97,86 @@ defmodule StandardWebhooks.Asymmetric do
     timestamp = String.to_integer(timestamp)
     StandardWebhooks.validate_timestamp(timestamp)
 
-    content = "#{webhook.endpoint_id}.#{id}.#{timestamp}." <> payload
-    digest = :crypto.hash(:sha256, content)
+    digest = signed_content_hash(webhook.endpoint_id, id, timestamp, payload)
 
     header_signatures
     |> Enum.flat_map(&String.split(&1, " "))
     |> Enum.any?(&valid_signature?(&1, digest, webhook.public_keys))
+  end
+
+  @doc """
+  Calculate the hash to sign given an endpoint ID, message ID, timestamp and payload
+
+  Returns the raw 32 byte SHA-256 hash of the `v2a` signed content
+  (`endpoint_id.msg_id.timestamp.payload`). This is what gets signed with ed25519, e.g. by an
+  HSM or a KMS. Pass the signature to `format_signature/1` to get the `webhook-signature` header
+  value.
+
+  The timestamp is in seconds since the epoch. The payload can be bytes (a binary) or a string
+  (a UTF-8 binary). It's signed byte for byte, so it must be the exact body that will be sent.
+  """
+  @spec signed_content_hash(
+          endpoint_id :: String.t(),
+          msg_id :: String.t(),
+          timestamp :: integer(),
+          payload :: binary() | String.t()
+        ) :: binary()
+  def signed_content_hash(_endpoint_id, msg_id, _timestamp, _payload)
+      when not is_binary(msg_id) do
+    raise ArgumentError, message: "Message id must be a string"
+  end
+
+  def signed_content_hash(_endpoint_id, _msg_id, timestamp, _payload)
+      when not is_integer(timestamp) do
+    raise ArgumentError, message: "Message timestamp must be an integer"
+  end
+
+  def signed_content_hash(_endpoint_id, _msg_id, _timestamp, payload)
+      when not is_binary(payload) do
+    raise ArgumentError, message: "Message payload must be a binary or a string"
+  end
+
+  def signed_content_hash(endpoint_id, msg_id, timestamp, payload) do
+    validate_endpoint_id(endpoint_id)
+
+    :crypto.hash(:sha256, "#{endpoint_id}.#{msg_id}.#{timestamp}." <> payload)
+  end
+
+  @doc """
+  Format a raw 64 byte ed25519 signature (of `signed_content_hash/4`) as a `webhook-signature`
+  header value: `v2a,<base64 signature>`
+  """
+  @spec format_signature(signature :: binary()) :: String.t()
+  def format_signature(<<_::binary-size(64)>> = signature) do
+    "#{@signature_identifier}," <> Base.encode64(signature)
+  end
+
+  def format_signature(_signature) do
+    raise ArgumentError, message: "Signature must be 64 bytes"
+  end
+
+  @doc """
+  Format an ed25519 public key (e.g. from an HSM or a KMS) as the `whpk_` prefixed public key to
+  share with consumers
+
+  Accepts either the raw 32 byte public key, or its 44 byte DER encoded SubjectPublicKeyInfo
+  (e.g. what AWS KMS `GetPublicKey` returns).
+  """
+  @spec format_public_key(public_key :: binary()) :: String.t()
+  def format_public_key(<<_::binary-size(32)>> = public_key) do
+    @public_key_prefix <> Base.encode64(public_key)
+  end
+
+  def format_public_key(
+        <<0x30, 0x2A, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70, 0x03, 0x21, 0x00,
+          public_key::binary-size(32)>>
+      ) do
+    format_public_key(public_key)
+  end
+
+  def format_public_key(_public_key) do
+    raise ArgumentError,
+      message: "Public key must be 32 raw bytes or a DER encoded ed25519 SubjectPublicKeyInfo"
   end
 
   defp valid_signature?(@signature_identifier <> "," <> signature, digest, public_keys) do
