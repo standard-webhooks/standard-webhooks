@@ -4,7 +4,7 @@ defmodule StandardWebhooks.MixProject do
   def project do
     [
       app: :standard_webhooks,
-      version: "0.1.1",
+      version: "1.3.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       description: description(),
