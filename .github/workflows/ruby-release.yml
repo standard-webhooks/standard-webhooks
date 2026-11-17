@@ -21,6 +21,9 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
+          # Use a minor series (not .ruby-version's exact patch) so CI always
+          # gets the latest prebuilt 3.4.x; newer runner images drop old patches.
+          ruby-version: "3.4"
           working-directory: libraries/ruby
 
       - name: Install dependencies
