@@ -64,7 +64,7 @@ Where `challenge` is the value of the `webhook-challenge` header exactly as rece
 
 In both cases this is the same data the consumer already uses for verifying webhooks, so no additional configuration is needed. The endpoint ID is included for asymmetric keys because the same key pair is usually shared across endpoints.
 
-The `wev-v1` label can never collide with the content of a webhook signature, as the signed content of a webhook (`msg_id.timestamp.payload`) always includes at least two `.` characters, and the label includes none.
+The `wev-v1` label can never collide with the content of a webhook signature, as the signed content of a webhook (`msg_id.timestamp.payload`, or `endpoint_id.msg_id.timestamp.payload` for asymmetric signatures) always includes at least two `.` characters, and the label includes none.
 
 The consumer then includes the `webhook-challenge-response` header, set to the signature calculated above prefixed with the signature identifier, in its response. For example:
 
