@@ -228,17 +228,16 @@ namespace StandardWebhooks
                 throw new WebhookVerificationException("Missing challenge response");
             }
 
-            var found = false;
             foreach (var publicKey in this.publicKeys)
             {
                 var expectedSignature = EndpointVerificationResponse(publicKey, challenge);
-                found |= Utils.SecureCompare(expectedSignature, header);
+                if (Utils.SecureCompare(expectedSignature, header))
+                {
+                    return;
+                }
             }
 
-            if (!found)
-            {
-                throw new WebhookVerificationException("No matching signature found");
-            }
+            throw new WebhookVerificationException("No matching signature found");
         }
 
         private string EndpointVerificationResponse(byte[] publicKey, string challenge)

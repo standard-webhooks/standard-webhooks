@@ -220,7 +220,6 @@ abstract class WebhookAsymmetricBase {
 		}
 
 		byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
-		boolean found = false;
 		for (byte[] publicKey : this.publicKeys) {
 			String expectedSignature;
 			try {
@@ -228,12 +227,12 @@ abstract class WebhookAsymmetricBase {
 			} catch (WebhookSigningException e) {
 				throw new WebhookVerificationException("Failed to generate expected signature");
 			}
-			found |= MessageDigest.isEqual(headerBytes, expectedSignature.getBytes(StandardCharsets.UTF_8));
+			if (MessageDigest.isEqual(headerBytes, expectedSignature.getBytes(StandardCharsets.UTF_8))) {
+				return;
+			}
 		}
 
-		if (!found) {
-			throw new WebhookVerificationException("No matching signature found");
-		}
+		throw new WebhookVerificationException("No matching signature found");
 	}
 
 	private String endpointVerificationResponse(final byte[] publicKey, final String challenge) throws WebhookSigningException {

@@ -429,15 +429,13 @@ export class WebhookAsymmetric {
 
     const encoder = new globalThis.TextEncoder();
     const passed = encoder.encode(header);
-    let found = false;
     for (const publicKey of this.publicKeys) {
       const expected = encoder.encode(this.challengeResponse(publicKey, challenge));
-      // Not short-circuiting, so the time taken doesn't depend on which key matched.
-      found = timingSafeEqual(passed, expected) || found;
+      if (timingSafeEqual(passed, expected)) {
+        return;
+      }
     }
-    if (!found) {
-      throw new WebhookVerificationError("No matching signature found");
-    }
+    throw new WebhookVerificationError("No matching signature found");
   }
 
   private challengeResponse(publicKey: Uint8Array, challenge: string): string {

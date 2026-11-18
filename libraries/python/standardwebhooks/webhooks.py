@@ -384,13 +384,11 @@ class WebhookAsymmetric:
             WebhookVerificationError if no matching signature is found.
         """
         passed = header.encode()
-        found = False
         for public_key in self._public_keys:
             expected_sig = self.__challenge_response(public_key, challenge)
-            # Not short-circuiting, so the time taken doesn't depend on which key matched.
-            found = hmac.compare_digest(expected_sig.encode(), passed) or found
-        if not found:
-            raise WebhookVerificationError("No matching signature found")
+            if hmac.compare_digest(expected_sig.encode(), passed):
+                return
+        raise WebhookVerificationError("No matching signature found")
 
     def __challenge_response(self, public_key: bytes, challenge: str) -> str:
         return _challenge_response(public_key + b"." + self._endpoint_id.encode(), challenge, "v2a")
