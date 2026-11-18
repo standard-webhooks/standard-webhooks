@@ -58,6 +58,55 @@ Producers can verify the response with `#verify_endpoint_verification_response`,
 webhook.verify_endpoint_verification_response(challenge, response_headers['webhook-challenge-response'])
 ```
 
+## Asymmetric signatures
+
+Webhooks signed with asymmetric (`v2a`) signatures are verified with `StandardWebhooks::WebhookAsymmetric`,
+which takes the endpoint ID and the list of trusted public keys (`whpk_...`) the producer shared with you.
+A webhook is accepted if it's signed by any of the keys, so keys can be rotated by adding the new key to the list.
+Put the newest key first, as endpoint verification responses are calculated with the first key.
+
+```ruby
+webhook = StandardWebhooks::WebhookAsymmetric.new(
+	ENV.fetch('WEBHOOK_ENDPOINT_ID'),
+	[ENV.fetch('WEBHOOK_PUBLIC_KEY')],
+)
+
+payload = webhook.verify(raw_body, {
+	'webhook-id' => request_headers.fetch('webhook-id'),
+	'webhook-timestamp' => request_headers.fetch('webhook-timestamp'),
+	'webhook-signature' => request_headers.fetch('webhook-signature'),
+})
+```
+
+`WebhookAsymmetric` also supports `#endpoint_verification_response` and `#verify_endpoint_verification_response`.
+
+### Signing (asymmetric)
+
+It's recommended to generate and hold the private key in a KMS or an HSM, and never export it.
+In that case, use `WebhookAsymmetric.signed_content_hash` to get the 32-byte SHA-256 hash to sign,
+sign it (pure ed25519) with your HSM, and format the 64-byte signature with `WebhookAsymmetric.format_signature`:
+
+```ruby
+digest = StandardWebhooks::WebhookAsymmetric.signed_content_hash(endpoint_id, msg_id, timestamp, payload)
+signature = my_hsm.ed25519_sign(digest) # Your HSM / KMS sign call
+headers['webhook-signature'] = StandardWebhooks::WebhookAsymmetric.format_signature(signature)
+
+# The `whpk_...` public key to share with consumers. Accepts the raw 32-byte key or its DER SubjectPublicKeyInfo.
+public_key = StandardWebhooks::WebhookAsymmetric.format_public_key(my_hsm.ed25519_public_key)
+```
+
+If you hold the private key yourself (`whsk_...`), use `StandardWebhooks::WebhookAsymmetricSigner`.
+One key pair can serve all of your endpoints, as the endpoint ID is part of the signed content:
+
+```ruby
+signer = StandardWebhooks::WebhookAsymmetricSigner.new(ENV.fetch('WEBHOOK_SECRET_KEY'))
+
+# Share with consumers, together with the endpoint ID
+public_key = signer.public_key # "whpk_..."
+
+headers['webhook-signature'] = signer.sign(endpoint_id, msg_id, Time.now.to_i, payload) # "v2a,..."
+```
+
 ## Rails example
 
 ```ruby

@@ -41,4 +41,9 @@ public class WebhookJava11IntegrationTest {
 			majorVersion
 		);
 	}
+
+	@Test
+	public void verifyLoadedAsymmetricClassFor11() throws Exception {
+		assertEquals(55, WebhookTest.classMajorVersion(WebhookAsymmetric.class));
+	}
 }

@@ -140,7 +140,10 @@ The unique identifier is a unique identifier associated with a specific event tr
 
 As mentioned above, it's important to sign both the body of the webhook and the associated metadata. To achieve this, the message's: ID, timestamp and body are concatenated (delimited by full-stops) and then signed.
 
-The content to be signed is therefore: `msg_id.timestamp.payload`.
+The content to be signed is therefore:
+
+- Symmetric signatures: `msg_id.timestamp.payload`
+- Asymmetric signatures: `endpoint_id.msg_id.timestamp.payload` (more on the endpoint ID below)
 
 For example:
 
@@ -170,11 +173,11 @@ There are a few differences between symmetric and asymmetric signatures and how 
 
 |                      | Symmetric                                                         | Asymmetric                                                                                                            |
 | -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Signature scheme     | `HMAC-SHA256`                                                     | `ed25519`                                                                                                             |
+| Signature scheme     | `HMAC-SHA256`                                                     | `ed25519` over the SHA-256 hash of the content                                                                        |
+| Signed content       | `msg_id.timestamp.payload`                                        | `endpoint_id.msg_id.timestamp.payload`                                                                                |
 | Signing secret       | Random. Between 24 bytes (192 bits) and 64 bytes (512 bits)       | Standard ed25519 key pair                                                                                             |
 | Secret serialization | base64 encoded, prefixed with \`whsec_\` for easy identification. | base64 encoded, prefixed with \`whsk_\` for the secret key, and \`whpk_\` for the public key for easy identification. |
-| Signature identifier | `v1`                                                              | `v1a`                                                                                                                 |
-
+| Signature identifier | `v1`                                                              | `v2a`[^v1a]                                                                                                           |
 
 Comparison:
 
@@ -187,15 +190,55 @@ Comparison:
 - Asymmetric:
   - Provides an additional layer of security as only the producer needs access to the private key.
   - Consumers can use a publicly available (non-secret) key to verify the signature which leads to much better security.
+  - The private key can be held in a KMS or an HSM, and never be exposed to the producer's application at all.
   - Performance: Asymmetric signatures can be more CPU intensive to produce and verify than symmetric ones.
 
-The "secret serialization" row refers to how secrets should be serialized when presented to customers. Having a unique and consistent secret format allows implementations to correctly use the correct scheme without additional configuration, and to ensure keys are used as expected.
+The "secret serialization" row refers to how secrets should be serialized when presented to customers. Having a unique and consistent secret format allows implementations to correctly use the correct scheme without additional configuration, and to ensure keys are used as expected. It's recommended to generate and hold asymmetric private keys in a KMS or an HSM, and never export them. The `whsk_` serialization is for producers that hold the private key themselves. Either way, the private key should never be shown to customers.
 
-The "signature identifier" is the version identifier prefixed to signatures when serialized and passed to customers (more on that in the "webhook headers" section). Symmetric signatures are prefixed with `v1` and asymmetric with `v1a`. So for example, a symmetric signature will be v1, followed by a comma (`,`), followed by the base64 encoded signature. For example: `v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4=`.
+The "signature identifier" is the version identifier prefixed to signatures when serialized and passed to customers (more on that in the "webhook headers" section). Symmetric signatures are prefixed with `v1` and asymmetric with `v2a`. So for example, a symmetric signature will be v1, followed by a comma (`,`), followed by the base64 encoded signature. For example: `v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4=`.
+
+##### Symmetric signatures
+
+The signature is the HMAC-SHA256 of the signed content, using the signing secret (the base64 decoded part after `whsec_`) as the key:
+
+```
+signature = base64(HMAC-SHA256(key=secret, msg="msg_id.timestamp.payload"))
+```
+
+##### Asymmetric signatures
+
+Asymmetric signing keys are often held by a KMS or an HSM, and are expensive (or impossible) to generate for every endpoint. Asymmetric key pairs can therefore be shared across endpoints. In fact, it's recommended to use just one key pair per environment of the product (e.g. one for production and one for staging), as it makes key management much easier, and works much better with KMSs and HSMs. To prevent a webhook sent to one endpoint from being replayed to another endpoint that trusts the same public key, the signed content includes the endpoint ID: a unique identifier of the endpoint the webhook is sent to.
+
+The signed content is hashed with SHA-256, and the resulting hash (the raw 32 bytes, not a hex or base64 representation of them) is signed using standard (pure) ed25519:
+
+```
+signature = base64(ed25519_sign(private_key, SHA-256("endpoint_id.msg_id.timestamp.payload")))
+```
+
+The endpoint ID is chosen by the producer, must be unique per endpoint, must not change for the lifetime of the endpoint, and must not include a `.`. It is not sent with the webhook: the producer shares it with the consumer together with the public key when the endpoint is created, and the consumer uses the endpoint ID it was given when verifying. This is what ensures that a webhook signed for another endpoint fails verification.
+
+For example, with the endpoint ID `ep_2fVZdC8Kx9TR4ZoCqHWt3NnLgRb`, and the message from the example above, the content to be hashed and signed is:
+
+```
+ep_2fVZdC8Kx9TR4ZoCqHWt3NnLgRb.msg_2KWPBgLlAfxdpx2AI54pPJ85f4W.1674087231.{"type":"contact.created","timestamp":"2022-11-03T20:26:10.344522Z","data":{"id":"1f81eb52-5198-4599-803e-771906343485"}}
+```
+
+With the example secret key `whsk_4uKPjji/dhB8w6GW3YYDnIMYvXcdHrvH6lidTr4Z+EY=` (public key `whpk_uWKK13PfwqyOgrqT0OrWKcS2uVD7e89+oUKnkoPjx7w=`), this results in:
+
+```
+SHA-256 (base64): YXCi5iN+rjB+iEb6bvg1XbWbVBL+r2S+as3k3n1Ih/A=
+
+v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg==
+```
+
+How public keys are distributed (e.g. shown in a dashboard, or published by the producer at a well known location) is out of scope for this specification.
+
+[^v1a]: Earlier versions of this specification defined `v1a`, which signed the content itself (without an endpoint ID) and required a unique key pair per endpoint. It has been deprecated in favor of `v2a`, which works with KMS and HSM signers, and lets a single key pair serve all endpoints, making key management and operations much simpler. Producers should send `v2a` instead.
 
 ##### Additional considerations:
 
-- Signing keys should be unique per endpoint for symmetric signatures, and unique per endpoint (or potentially customer) for asymmetric signatures. Reusing keys across customers can lead to security issues!
+- Symmetric signing keys must be unique per endpoint. Reusing keys across customers can lead to security issues!
+- Asymmetric key pairs can be shared across endpoints, as the endpoint ID is part of the signed content, and it's recommended to use just one key pair per environment of the product. Endpoint IDs must therefore be unique, and must not be user controlled.
 - Prefer asymmetric signature schemes over symmetric ones. Weigh the performance benefits of symmetric signatures against their security drawbacks.
 - Consider key distribution schemes between consumers and producers early on.
 - Consumers should establish a trust list of public keys and signature schemes. Do not blindly trust signatures produced by untrusted public keys (e.g. by reading the public key from an additional header from the request payload).
@@ -221,7 +264,7 @@ Example headers:
 ```
 webhook-id: msg_2KWPBgLlAfxdpx2AI54pPJ85f4W
 webhook-timestamp: 1674087231
-webhook-signature: v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1a,hnO3f9T8Ytu9HwrXslvumlUpqtNVqkhqw/enGzPCXe5BdqzCInXqYXFymVJaA7AZdpXwVLPo3mNl8EM+m7TBAg==
+webhook-signature: v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v2a,kG9XaxZjAEpKB8KeQQb5G1Xp73YH5Rf5gxoWe7cg1kYMiyspdtZXe9w+dAwKeOurAwxfqmlOG/QR4m9s37DzAg==
 ```
 
 #### Verifying signatures
@@ -230,6 +273,8 @@ Verifying signatures is similar to creating them, though there are a few conside
 
 - When verifying symmetric signatures, use a constant time comparison function to compare the calculated with the expected signature. Failing to do so can expose consumers to timing-attacks and turn them into signing oracles.
 - When verifying asymmetric signatures, use a battle tested cryptographic library. Keep this dependency up to date.
+- When verifying asymmetric signatures, use the endpoint ID the producer shared with you, never one taken from the request.
+- Asymmetric key pairs are rotated by the producer, and the consumer may not know which of the producer's public keys signed a given webhook. Consumers (and libraries) should therefore support verifying against a list of trusted public keys, and accept the webhook if any signature in the header verifies with any of them.
 - Make sure to verify the `webhook-timestamp` header has a timestamp that is within some allowable tolerance of the current timestamp to prevent replay attacks.
 - Use the `webhook-id` header as an idempotency key to prevent accidentally processing the same webhook more than once (e.g. save the IDs in redis for 5 minutes).
 

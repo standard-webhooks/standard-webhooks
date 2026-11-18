@@ -7,6 +7,8 @@ require "uri"
 
 module StandardWebhooks
   class Webhook
+    include TimestampVerification
+
     def self.new_using_raw_bytes(secret)
       new(secret.pack("C*").force_encoding("UTF-8"))
     end
@@ -84,26 +86,6 @@ module StandardWebhooks
     end
 
     SECRET_PREFIX = "whsec_"
-    TOLERANCE = 5 * 60
-    private_constant :SECRET_PREFIX, :TOLERANCE
-
-    private
-
-    def verify_timestamp(timestamp_header)
-      begin
-        now = Integer(Time.now)
-        timestamp = Integer(timestamp_header)
-      rescue
-        raise WebhookVerificationError, "Invalid Signature Headers"
-      end
-
-      if timestamp < (now - TOLERANCE)
-        raise WebhookVerificationError, "Message timestamp too old"
-      end
-
-      if timestamp > (now + TOLERANCE)
-        raise WebhookVerificationError, "Message timestamp too new"
-      end
-    end
+    private_constant :SECRET_PREFIX
   end
 end

@@ -34,6 +34,9 @@ license = "MIT"
 license-files = ["LICENSE"]
 dependencies = []
 
+[project.optional-dependencies]
+asymmetric = ["cryptography>=2.6"]
+
 [project.urls]
 Homepage = "https://www.standardwebhooks.com/"
 Repository = "https://github.com/standard-webhooks/standard-webhooks"
@@ -41,6 +44,7 @@ Issues = "https://github.com/standard-webhooks/standard-webhooks/issues"
 
 [dependency-groups]
 dev = [
+    "cryptography>=2.6",
     "mypy>=1.4.0",
     "pytest",
     "ruff>=0.1.8",
