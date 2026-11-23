@@ -1,80 +1,99 @@
+# Security updates only.
+#
+# `open-pull-requests-limit: 0` disables routine version-update PRs, while
+# Dependabot security updates (enabled in the repository settings) keep working.
+# The `security` group bundles all security fixes for an ecosystem into one PR.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: gomod
     directory: /libraries
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /libraries/javascript
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
-      lint:
-        patterns:
-          - "eslint"
-          - "@typescript-eslint/*"
-          - "prettier"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: uv
     directory: /libraries/python
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: cargo
     directory: /libraries/rust
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-  - package-ecosystem: gradle
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: maven
     directory: /libraries/java
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: composer
-    directory: /libraries
+    directories:
+      - /
+      - /libraries
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: nuget
     directory: /libraries/csharp
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: bundler
     directory: /libraries/ruby
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: mix
+    directory: /libraries/elixir
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
