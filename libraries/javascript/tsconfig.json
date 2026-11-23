@@ -3,8 +3,9 @@
     "strict": true,
     /* Basic Options */
     "target": "es6",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "commonjs",
+    "moduleResolution": "bundler",
+    "types": ["node"],
     "declaration": true,
     "allowJs": true,
 
@@ -16,6 +17,7 @@
 
     "removeComments": true,
     "sourceMap": true,
+    "rootDir": "./src",
     "outDir": "./dist",
     "noLib": false,
     "lib": ["es6", "dom"]
