@@ -119,9 +119,10 @@ impl Webhook {
         timestamp: i64,
         payload: &[u8],
     ) -> Result<String, WebhookError> {
-        let payload = std::str::from_utf8(payload).map_err(|_| WebhookError::InvalidPayload)?;
-        let to_sign = format!("{msg_id}.{timestamp}.{payload}",);
-        let signed = hmac_sha256::HMAC::mac(to_sign.as_bytes(), &self.key);
+        let mut hmac = hmac_sha256::HMAC::new(&self.key);
+        hmac.update(format!("{msg_id}.{timestamp}.").as_bytes());
+        hmac.update(payload);
+        let signed = hmac.finalize();
         let encoded = base64::engine::general_purpose::STANDARD.encode(signed);
 
         Ok(format!("{SIGNATURE_VERSION},{encoded}"))
@@ -179,9 +180,9 @@ fn parse_timestamp(hdr: &str) -> Result<i64, WebhookError> {
 }
 
 fn verify_timestamp(ts: i64, now: i64) -> Result<(), WebhookError> {
-    if now - ts > TOLERANCE_IN_SECONDS {
+    if ts < now.saturating_sub(TOLERANCE_IN_SECONDS) {
         Err(WebhookError::TimestampTooOldError)
-    } else if ts > now + TOLERANCE_IN_SECONDS {
+    } else if ts > now.saturating_add(TOLERANCE_IN_SECONDS) {
         Err(WebhookError::FutureTimestampError)
     } else {
         Ok(())
@@ -438,5 +439,74 @@ mod tests {
                 assert!(wh.verify(payload, &hdr_map).is_err());
             }
         }
+    }
+
+    #[test]
+    fn test_verify_binary_payload() {
+        let secret = "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD";
+        let msg_id = "msg_27UH4WbU6Z5A5EzD8u03UvzRbpk";
+        let payload = b"\xff\x00\xfe binary";
+        let wh = Webhook::new(secret).unwrap();
+
+        assert_eq!(
+            "v1,NA+Rgw+Rwt722cbZhIhCduYUxts324Ulywfz/K+wv/I=",
+            wh.sign(msg_id, 1649367553, payload).unwrap()
+        );
+
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let signature = wh.sign(msg_id, now, payload).unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(HEADER_WEBHOOK_ID, msg_id.parse().unwrap());
+        headers.insert(HEADER_WEBHOOK_SIGNATURE, signature.parse().unwrap());
+        headers.insert(HEADER_WEBHOOK_TIMESTAMP, now.to_string().parse().unwrap());
+
+        wh.verify_with_timestamp(payload, &headers, now).unwrap();
+        assert_eq!(
+            wh.verify_with_timestamp(b"\xff\x00\xfd binary", &headers, now),
+            Err(WebhookError::InvalidSignature)
+        );
+    }
+
+    #[test]
+    fn test_verify_timestamp_extreme_bounds() {
+        let secret = "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD";
+        let msg_id = "msg_27UH4WbU6Z5A5EzD8u03UvzRbpk";
+        let payload = br#"{"email":"test@example.com"}"#;
+        let wh = Webhook::new(secret).unwrap();
+        let now = 1_700_000_000_i64;
+
+        let make_headers = |ts: i64| {
+            let sig = wh.sign(msg_id, ts, payload).unwrap();
+            let mut headers = HeaderMap::new();
+            headers.insert(HEADER_WEBHOOK_ID, msg_id.parse().unwrap());
+            headers.insert(HEADER_WEBHOOK_SIGNATURE, sig.parse().unwrap());
+            headers.insert(HEADER_WEBHOOK_TIMESTAMP, ts.to_string().parse().unwrap());
+            headers
+        };
+
+        assert_eq!(
+            wh.verify_with_timestamp(payload, &make_headers(i64::MIN), now),
+            Err(WebhookError::TimestampTooOldError)
+        );
+        assert_eq!(
+            wh.verify_with_timestamp(payload, &make_headers(i64::MAX), now),
+            Err(WebhookError::FutureTimestampError)
+        );
+        wh.verify_with_timestamp(payload, &make_headers(i64::MAX), i64::MAX)
+            .unwrap();
+        wh.verify_with_timestamp(payload, &make_headers(i64::MIN), i64::MIN)
+            .unwrap();
+        wh.verify_with_timestamp(payload, &make_headers(now - TOLERANCE_IN_SECONDS), now)
+            .unwrap();
+        wh.verify_with_timestamp(payload, &make_headers(now + TOLERANCE_IN_SECONDS), now)
+            .unwrap();
+        assert_eq!(
+            wh.verify_with_timestamp(payload, &make_headers(now - TOLERANCE_IN_SECONDS - 1), now),
+            Err(WebhookError::TimestampTooOldError)
+        );
+        assert_eq!(
+            wh.verify_with_timestamp(payload, &make_headers(now + TOLERANCE_IN_SECONDS + 1), now),
+            Err(WebhookError::FutureTimestampError)
+        );
     }
 }
