@@ -108,6 +108,7 @@ Keys are rotated by the producer: consumers just add the new public key to the l
 - [C# (.NET)](https://github.com/codefactors/StandardWebhooks)
 - [Haskell](https://github.com/MercuryTechnologies/signet)
 - [Java](https://github.com/Cosium/standard-webhooks-consumer)
+- [Java (Spring Boot)](https://github.com/jinternals/webhooks)
 - [Swift](https://github.com/m1guelpf/swift-standard-webhooks)
 
 
